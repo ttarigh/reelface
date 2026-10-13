@@ -1,0 +1,833 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Curation Studio | The Most Viral Face</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=JetBrains+Mono:wght@400;500;700&family=Outfit:wght@400;500;600;700&display=swap" rel="stylesheet">
+  <style>
+    :root {
+      --bg: #07080b;
+      --card-bg: rgba(18, 20, 29, 0.75);
+      --card-border: rgba(255, 255, 255, 0.08);
+      --accent: #6366f1;
+      --green: #10b981;
+      --green-glow: rgba(16, 185, 129, 0.35);
+      --red: #ef4444;
+      --red-glow: rgba(239, 68, 68, 0.35);
+      --text: #f3f4f6;
+      --text-muted: #9ca3af;
+    }
+
+    * { box-sizing: border-box; margin: 0; padding: 0; }
+    body {
+      background-color: var(--bg);
+      color: var(--text);
+      font-family: 'Outfit', sans-serif;
+      min-height: 100vh;
+      display: flex;
+      flex-direction: column;
+      overflow-x: hidden;
+    }
+
+    /* Ambient background gradient glow */
+    body::before {
+      content: '';
+      position: fixed;
+      top: -20%;
+      left: 50%;
+      transform: translateX(-50%);
+      width: 800px;
+      height: 500px;
+      background: radial-gradient(ellipse, rgba(99, 102, 241, 0.12) 0%, transparent 70%);
+      pointer-events: none;
+      z-index: 0;
+    }
+
+    /* Header */
+    header {
+      position: sticky;
+      top: 0;
+      z-index: 100;
+      backdrop-filter: blur(16px);
+      background: rgba(7, 8, 11, 0.85);
+      border-bottom: 1px solid var(--card-border);
+      padding: 14px 28px;
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+    }
+
+    .brand {
+      display: flex;
+      align-items: center;
+      gap: 12px;
+    }
+    .brand-title {
+      font-size: 1.15rem;
+      font-weight: 700;
+      letter-spacing: -0.02em;
+      background: linear-gradient(135deg, #fff 40%, #9ca3af 100%);
+      -webkit-background-clip: text;
+      -webkit-text-fill-color: transparent;
+    }
+    .badge {
+      font-family: 'JetBrains Mono', monospace;
+      font-size: 0.72rem;
+      padding: 3px 8px;
+      border-radius: 6px;
+      background: rgba(99, 102, 241, 0.15);
+      border: 1px solid rgba(99, 102, 241, 0.3);
+      color: #a5b4fc;
+    }
+
+    .controls-nav {
+      display: flex;
+      align-items: center;
+      gap: 14px;
+    }
+
+    .stat-pill {
+      font-family: 'JetBrains Mono', monospace;
+      font-size: 0.82rem;
+      color: var(--text-muted);
+      background: rgba(255, 255, 255, 0.04);
+      border: 1px solid var(--card-border);
+      padding: 6px 14px;
+      border-radius: 20px;
+    }
+    .stat-pill strong { color: #fff; }
+
+    .btn {
+      cursor: pointer;
+      font-family: 'Outfit', sans-serif;
+      font-size: 0.85rem;
+      font-weight: 600;
+      padding: 8px 16px;
+      border-radius: 8px;
+      border: none;
+      display: flex;
+      align-items: center;
+      gap: 8px;
+      transition: all 0.2s ease;
+      text-decoration: none;
+    }
+    .btn-secondary {
+      background: rgba(255, 255, 255, 0.06);
+      color: var(--text);
+      border: 1px solid var(--card-border);
+    }
+    .btn-secondary:hover {
+      background: rgba(255, 255, 255, 0.12);
+    }
+    .btn-recomp {
+      background: linear-gradient(135deg, #4f46e5, #6366f1);
+      color: #fff;
+      box-shadow: 0 4px 14px rgba(99, 102, 241, 0.35);
+    }
+    .btn-recomp:hover {
+      transform: translateY(-1px);
+      box-shadow: 0 6px 20px rgba(99, 102, 241, 0.5);
+    }
+
+    /* View Switcher */
+    .view-toggle {
+      display: flex;
+      background: rgba(255, 255, 255, 0.05);
+      border-radius: 8px;
+      padding: 2px;
+      border: 1px solid var(--card-border);
+    }
+    .view-btn {
+      cursor: pointer;
+      background: none;
+      border: none;
+      color: var(--text-muted);
+      font-family: 'Outfit', sans-serif;
+      font-size: 0.82rem;
+      font-weight: 600;
+      padding: 5px 12px;
+      border-radius: 6px;
+      transition: all 0.15s ease;
+    }
+    .view-btn.active {
+      background: rgba(255, 255, 255, 0.14);
+      color: #fff;
+    }
+
+    /* Main Container */
+    main {
+      flex: 1;
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      justify-content: center;
+      padding: 24px;
+      position: relative;
+      z-index: 10;
+    }
+
+    /* Card Inspector View */
+    #inspector-view {
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      width: 100%;
+      max-width: 420px;
+    }
+
+    .curation-card {
+      width: 100%;
+      background: var(--card-bg);
+      border: 1px solid var(--card-border);
+      border-radius: 20px;
+      overflow: hidden;
+      box-shadow: 0 20px 50px rgba(0, 0, 0, 0.7);
+      backdrop-filter: blur(20px);
+      display: flex;
+      flex-direction: column;
+      transition: transform 0.25s ease, opacity 0.25s ease;
+    }
+
+    .card-photo-wrapper {
+      position: relative;
+      width: 100%;
+      aspect-ratio: 9 / 16;
+      background: #000;
+      overflow: hidden;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+    }
+    .card-photo {
+      width: 100%;
+      height: 100%;
+      object-fit: contain; /* Completely uncropped full 9:16 frame */
+      display: block;
+      background: #000;
+    }
+
+    .card-badges {
+      position: absolute;
+      top: 14px;
+      left: 14px;
+      right: 14px;
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      pointer-events: none;
+    }
+    .rank-tag {
+      font-family: 'JetBrains Mono', monospace;
+      font-size: 0.85rem;
+      font-weight: 700;
+      background: rgba(0, 0, 0, 0.7);
+      backdrop-filter: blur(8px);
+      padding: 4px 10px;
+      border-radius: 8px;
+      color: #fff;
+      border: 1px solid rgba(255, 255, 255, 0.15);
+    }
+    .category-tag {
+      font-size: 0.75rem;
+      font-weight: 600;
+      background: rgba(99, 102, 241, 0.75);
+      backdrop-filter: blur(8px);
+      color: #fff;
+      padding: 4px 10px;
+      border-radius: 8px;
+      text-transform: capitalize;
+    }
+
+    .card-body {
+      padding: 20px;
+      display: flex;
+      flex-direction: column;
+      gap: 12px;
+    }
+
+    .card-creator-row {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+    }
+    .card-handle {
+      font-size: 1.25rem;
+      font-weight: 700;
+      color: #fff;
+    }
+    .card-likes {
+      font-family: 'JetBrains Mono', monospace;
+      font-size: 0.9rem;
+      color: #f87171;
+      display: flex;
+      align-items: center;
+      gap: 4px;
+    }
+
+    .card-link {
+      font-size: 0.85rem;
+      color: #818cf8;
+      text-decoration: none;
+      display: inline-flex;
+      align-items: center;
+      gap: 6px;
+      transition: color 0.15s;
+    }
+    .card-link:hover { color: #a5b4fc; text-decoration: underline; }
+
+    /* Action Buttons */
+    .card-actions {
+      display: flex;
+      gap: 16px;
+      width: 100%;
+      margin-top: 20px;
+    }
+    .action-btn {
+      flex: 1;
+      cursor: pointer;
+      border: none;
+      padding: 16px;
+      border-radius: 14px;
+      font-family: 'Outfit', sans-serif;
+      font-size: 1.05rem;
+      font-weight: 700;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      gap: 8px;
+      transition: all 0.2s cubic-bezier(0.16, 1, 0.3, 1);
+    }
+    .btn-reject {
+      background: rgba(239, 68, 68, 0.12);
+      color: #f87171;
+      border: 1px solid rgba(239, 68, 68, 0.3);
+    }
+    .btn-reject:hover {
+      background: var(--red);
+      color: #fff;
+      transform: translateY(-2px);
+      box-shadow: 0 8px 24px var(--red-glow);
+    }
+    .btn-approve {
+      background: rgba(16, 185, 129, 0.12);
+      color: #34d399;
+      border: 1px solid rgba(16, 185, 129, 0.3);
+    }
+    .btn-approve:hover {
+      background: var(--green);
+      color: #fff;
+      transform: translateY(-2px);
+      box-shadow: 0 8px 24px var(--green-glow);
+    }
+
+    .key-hints {
+      display: flex;
+      gap: 20px;
+      margin-top: 14px;
+      font-size: 0.78rem;
+      color: var(--text-muted);
+      font-family: 'JetBrains Mono', monospace;
+    }
+    .key-hints kbd {
+      background: rgba(255, 255, 255, 0.1);
+      padding: 2px 6px;
+      border-radius: 4px;
+      border: 1px solid rgba(255, 255, 255, 0.15);
+      color: #fff;
+    }
+
+    /* Grid View */
+    #grid-view {
+      display: none;
+      width: 100%;
+      max-width: 1300px;
+    }
+    .grid-gallery {
+      display: grid;
+      grid-template-columns: repeat(auto-fill, minmax(180px, 1fr));
+      gap: 16px;
+      width: 100%;
+    }
+    .grid-item {
+      position: relative;
+      background: var(--card-bg);
+      border: 1px solid var(--card-border);
+      border-radius: 12px;
+      overflow: hidden;
+      aspect-ratio: 9/16;
+      transition: transform 0.2s ease, box-shadow 0.2s ease;
+    }
+    .grid-item:hover {
+      transform: translateY(-3px);
+      box-shadow: 0 10px 24px rgba(0, 0, 0, 0.5);
+    }
+    .grid-thumb {
+      width: 100%;
+      height: 100%;
+      object-fit: contain;
+      background: #000;
+    }
+    .grid-overlay {
+      position: absolute;
+      bottom: 0;
+      left: 0;
+      right: 0;
+      padding: 10px;
+      background: linear-gradient(transparent, rgba(0, 0, 0, 0.85));
+      display: flex;
+      flex-direction: column;
+      gap: 2px;
+    }
+    .grid-handle {
+      font-size: 0.8rem;
+      font-weight: 700;
+      color: #fff;
+      white-space: nowrap;
+      overflow: hidden;
+      text-overflow: ellipsis;
+    }
+    .grid-likes {
+      font-family: 'JetBrains Mono', monospace;
+      font-size: 0.7rem;
+      color: #fca5a5;
+    }
+    .grid-delete-btn {
+      cursor: pointer;
+      position: absolute;
+      top: 8px;
+      right: 8px;
+      width: 30px;
+      height: 30px;
+      border-radius: 50%;
+      background: rgba(239, 68, 68, 0.85);
+      color: #fff;
+      border: none;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      font-size: 1rem;
+      opacity: 0;
+      transform: scale(0.8);
+      transition: all 0.15s ease;
+    }
+    .grid-item:hover .grid-delete-btn {
+      opacity: 1;
+      transform: scale(1);
+    }
+    .grid-delete-btn:hover {
+      background: #dc2626;
+      transform: scale(1.1);
+    }
+
+    /* Toast Notification */
+    #toast {
+      position: fixed;
+      bottom: 24px;
+      right: 24px;
+      background: rgba(18, 20, 29, 0.95);
+      border: 1px solid var(--card-border);
+      color: #fff;
+      padding: 12px 20px;
+      border-radius: 10px;
+      font-size: 0.9rem;
+      box-shadow: 0 10px 30px rgba(0, 0, 0, 0.5);
+      backdrop-filter: blur(16px);
+      display: flex;
+      align-items: center;
+      gap: 10px;
+      opacity: 0;
+      transform: translateY(20px);
+      transition: all 0.25s ease;
+      pointer-events: none;
+      z-index: 1000;
+    }
+    #toast.show {
+      opacity: 1;
+      transform: translateY(0);
+    }
+  </style>
+</head>
+<body>
+
+  <header>
+    <div class="brand">
+      <h1 class="brand-title">Curation Studio</h1>
+      <span class="badge" style="background: rgba(16, 185, 129, 0.15); border: 1px solid rgba(16, 185, 129, 0.3); color: #34d399; display: flex; align-items: center; gap: 6px;">
+        <span style="width: 7px; height: 7px; border-radius: 50%; background: #10b981; display: inline-block; box-shadow: 0 0 8px #10b981;"></span> Live Auto-Syncing
+      </span>
+    </div>
+
+    <div class="controls-nav">
+      <div class="stat-pill">
+        Active: <strong id="active-count">0</strong> | Reviewed: <strong id="reviewed-count">0</strong>
+      </div>
+
+      <div class="view-toggle">
+        <button class="view-btn active" id="btn-view-card" onclick="setView('card')">Card View</button>
+        <button class="view-btn" id="btn-view-grid" onclick="setView('grid')">Grid View</button>
+      </div>
+
+      <button class="btn btn-recomp" onclick="triggerRecomposite()">
+        <span>⚡</span> Re-calculate Composite
+      </button>
+
+      <a href="index.html" class="btn btn-secondary">
+        <span>←</span> 3D Mask View
+      </a>
+    </div>
+  </header>
+
+  <main>
+    <!-- Single Card Inspector (Tinder style fast review) -->
+    <div id="inspector-view">
+      <div class="curation-card" id="card">
+        <div class="card-photo-wrapper">
+          <img class="card-photo" id="card-img" src="" alt="Creator Face">
+          <div class="card-badges">
+            <span class="rank-tag" id="card-rank">#0001</span>
+            <span class="category-tag" id="card-category">Storytime</span>
+          </div>
+        </div>
+        <div class="card-body">
+          <div class="card-creator-row">
+            <span class="card-handle" id="card-handle">@creator</span>
+            <span class="card-likes" id="card-likes">❤️ 125,000</span>
+          </div>
+          <a class="card-link" id="card-reel" href="#" target="_blank" rel="noopener">
+            Watch Reel on Instagram ↗
+          </a>
+        </div>
+      </div>
+
+      <div class="card-actions">
+        <button class="action-btn btn-reject" onclick="rejectCurrent()" title="Reject & Remove (Left Arrow or X)">
+          <span>✕</span> Reject & Remove
+        </button>
+        <button class="action-btn btn-approve" onclick="approveCurrent()" title="Approve & Keep (Right Arrow or Space)">
+          <span>✓</span> Approve & Keep
+        </button>
+      </div>
+
+      <div class="key-hints">
+        <span><kbd>←</kbd> or <kbd>X</kbd> Reject</span>
+        <span><kbd>→</kbd> or <kbd>Space</kbd> Approve</span>
+        <span><kbd>↑</kbd> Previous</span>
+      </div>
+    </div>
+
+    <!-- Grid Gallery View -->
+    <div id="grid-view">
+      <div class="grid-gallery" id="grid-gallery"></div>
+    </div>
+  </main>
+
+  <div id="toast"></div>
+
+  <script>
+    let allCreators = [];
+    let reviewedCount = 0;
+
+    // Load persisted approved and rejected sets from localStorage
+    let localApproved = new Set();
+    let localRejected = new Set();
+    try {
+      const storedApp = localStorage.getItem('mvf_approved_photos');
+      if (storedApp) localApproved = new Set(JSON.parse(storedApp));
+      const storedRej = localStorage.getItem('mvf_rejected_photos');
+      if (storedRej) localRejected = new Set(JSON.parse(storedRej));
+    } catch (e) {}
+
+    function saveStateToStorage() {
+      try {
+        localStorage.setItem('mvf_approved_photos', JSON.stringify(Array.from(localApproved)));
+        localStorage.setItem('mvf_rejected_photos', JSON.stringify(Array.from(localRejected)));
+      } catch (e) {}
+    }
+
+    function getUnreviewedQueue() {
+      return allCreators.filter(c => !c.approved && !localApproved.has(c.photo) && !localRejected.has(c.photo));
+    }
+
+    function getApprovedCount() {
+      return allCreators.filter(c => c.approved || localApproved.has(c.photo)).length;
+    }
+
+    async function loadCreators() {
+      try {
+        const res = await fetch('/api/creators');
+        const data = await res.json();
+        if (data.success && data.creators) {
+          allCreators = data.creators;
+          
+          // Sync server-side approved flags with local set
+          allCreators.forEach(c => {
+            if (c.approved) localApproved.add(c.photo);
+          });
+          saveStateToStorage();
+
+          updateHeaderStats();
+          renderCurrentCard();
+          renderGrid();
+        }
+      } catch (e) {
+        showToast("Error loading creators: " + e);
+      }
+    }
+
+    function updateHeaderStats() {
+      const unreviewed = getUnreviewedQueue();
+      const approvedTotal = getApprovedCount();
+      document.getElementById('active-count').innerText = unreviewed.length;
+      document.getElementById('reviewed-count').innerText = approvedTotal;
+    }
+
+    // Live Auto-Sync: Polls every 4 seconds in the background
+    async function syncIncomingFaces() {
+      try {
+        const res = await fetch('/api/creators');
+        const data = await res.json();
+        if (data.success && data.creators) {
+          const currentPhotoSet = new Set(allCreators.map(c => c.photo));
+          const newAdditions = data.creators.filter(c => !currentPhotoSet.has(c.photo) && !localRejected.has(c.photo) && !localApproved.has(c.photo));
+          
+          if (newAdditions.length > 0) {
+            allCreators.push(...newAdditions);
+            updateHeaderStats();
+            renderGrid();
+            showToast(`⚡ +${newAdditions.length} new face${newAdditions.length > 1 ? 's' : ''} harvested and queued for review!`);
+            
+            // If user had cleared the queue, show the new incoming card
+            const inspectorView = document.getElementById('inspector-view');
+            if (inspectorView && inspectorView.innerText.includes('All Caught Up')) {
+              renderCurrentCard();
+            }
+          }
+        }
+      } catch (e) {}
+    }
+
+    function renderCurrentCard() {
+      const queue = getUnreviewedQueue();
+      const inspector = document.getElementById('inspector-view');
+
+      if (queue.length === 0) {
+        inspector.innerHTML = `
+          <div style="text-align: center; padding: 60px 20px;">
+            <div style="font-size: 3rem; margin-bottom: 16px;">✨</div>
+            <h2 style="font-size: 1.8rem; margin-bottom: 12px; font-weight: 700;">All Caught Up!</h2>
+            <p style="color: var(--text-muted); margin-bottom: 24px; max-width: 380px; margin-left: auto; margin-right: auto;">
+              You have reviewed every face currently in the database! Newly harvested faces will automatically pop up here as they arrive.
+            </p>
+            <div style="display: flex; gap: 14px; justify-content: center; flex-wrap: wrap;">
+              <button class="btn btn-recomp" onclick="triggerRecomposite()">⚡ Re-calculate Composite Face Now</button>
+              <button class="btn btn-secondary" onclick="setView('grid')">Browse Grid Gallery</button>
+            </div>
+          </div>
+        `;
+        return;
+      }
+
+      const c = queue[0];
+      const approvedCount = getApprovedCount();
+
+      // Ensure template card structure is restored if it was replaced by end screen
+      if (!document.getElementById('card-img')) {
+        inspector.innerHTML = `
+          <div class="curation-card" id="card">
+            <div class="card-photo-wrapper">
+              <img class="card-photo" id="card-img" src="" alt="Creator Face">
+              <div class="card-badges">
+                <span class="rank-tag" id="card-rank">#0001</span>
+                <span class="category-tag" id="card-category">Storytime</span>
+              </div>
+            </div>
+            <div class="card-body">
+              <div class="card-creator-row">
+                <span class="card-handle" id="card-handle">@creator</span>
+                <span class="card-likes" id="card-likes">❤️ 125,000</span>
+              </div>
+              <a class="card-link" id="card-reel" href="#" target="_blank" rel="noopener">
+                Watch Reel on Instagram ↗
+              </a>
+            </div>
+          </div>
+
+          <div class="card-actions">
+            <button class="action-btn btn-reject" onclick="rejectCurrent()" title="Reject & Remove (Left Arrow or X)">
+              <span>✕</span> Reject & Remove
+            </button>
+            <button class="action-btn btn-approve" onclick="approveCurrent()" title="Approve & Keep (Right Arrow or Space)">
+              <span>✓</span> Approve & Keep
+            </button>
+          </div>
+
+          <div class="key-hints">
+            <span><kbd>←</kbd> or <kbd>X</kbd> Reject</span>
+            <span><kbd>→</kbd> or <kbd>Space</kbd> Approve</span>
+          </div>
+        `;
+      }
+
+      const cardImg = document.getElementById('card-img');
+      cardImg.onerror = () => {
+        console.warn("Image file missing, automatically removing from queue:", c.photo);
+        rejectCurrent();
+      };
+      cardImg.src = `talking_head_photos_100/${c.photo}`;
+      document.getElementById('card-rank').innerText = `#${c.rank} (${queue.length} pending review)`;
+      document.getElementById('card-handle').innerText = `@${c.handle}`;
+      document.getElementById('card-category').innerText = c.category || 'General';
+      document.getElementById('card-likes').innerText = `❤️ ${(c.likes || 50000).toLocaleString()} likes`;
+      document.getElementById('card-reel').href = c.reelUrl || `https://www.instagram.com/reel/${c.video_id}/`;
+      updateHeaderStats();
+    }
+
+    async function approveCurrent() {
+      const queue = getUnreviewedQueue();
+      if (queue.length === 0) return;
+      const c = queue[0];
+
+      // Mark as approved locally and persist
+      c.approved = true;
+      localApproved.add(c.photo);
+      saveStateToStorage();
+
+      // Notify server in background to persist approved flag on disk
+      fetch('/api/approve', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ photo: c.photo, rank: c.rank })
+      }).catch(() => {});
+
+      showToast(`✓ Approved @${c.handle}`);
+      updateHeaderStats();
+      renderCurrentCard();
+      renderGrid();
+    }
+
+    async function rejectCurrent() {
+      const queue = getUnreviewedQueue();
+      if (queue.length === 0) return;
+      const c = queue[0];
+
+      localRejected.add(c.photo);
+      saveStateToStorage();
+      allCreators = allCreators.filter(x => x.photo !== c.photo);
+
+      try {
+        const res = await fetch('/api/reject', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ photo: c.photo, rank: c.rank })
+        });
+        const data = await res.json();
+        if (data.success) {
+          showToast(`✕ Removed @${c.handle} (${data.remaining} remaining in DB)`);
+        }
+      } catch (e) {
+        showToast("Error rejecting: " + e);
+      }
+
+      updateHeaderStats();
+      renderCurrentCard();
+      renderGrid();
+    }
+
+    async function deleteFromGrid(photo, rank, handle) {
+      if (!confirm(`Are you sure you want to remove @${handle}?`)) return;
+      localRejected.add(photo);
+      saveStateToStorage();
+      allCreators = allCreators.filter(c => c.photo !== photo);
+
+      try {
+        const res = await fetch('/api/reject', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ photo, rank })
+        });
+        const data = await res.json();
+        if (data.success) {
+          showToast(`✕ Removed @${handle}`);
+        }
+      } catch (e) {
+        showToast("Error deleting: " + e);
+      }
+
+      updateHeaderStats();
+      renderGrid();
+      renderCurrentCard();
+    }
+
+    function renderGrid() {
+      const gallery = document.getElementById('grid-gallery');
+      if (!gallery) return;
+      gallery.innerHTML = '';
+
+      allCreators.filter(c => !localRejected.has(c.photo)).forEach(c => {
+        const isApproved = c.approved || localApproved.has(c.photo);
+        const item = document.createElement('div');
+        item.className = 'grid-item';
+        item.style.borderColor = isApproved ? 'rgba(16, 185, 129, 0.4)' : 'var(--card-border)';
+        item.innerHTML = `
+          <img class="grid-thumb" src="talking_head_photos_100/${c.photo}" loading="lazy">
+          <button class="grid-delete-btn" onclick="deleteFromGrid('${c.photo}', '${c.rank}', '${c.handle}')" title="Delete">✕</button>
+          ${isApproved ? '<span style="position: absolute; top: 8px; left: 8px; background: rgba(16, 185, 129, 0.9); color: #fff; font-size: 0.68rem; font-weight: 700; padding: 2px 6px; border-radius: 4px;">✓ Approved</span>' : ''}
+          <div class="grid-overlay">
+            <span class="grid-handle">@${c.handle}</span>
+            <span class="grid-likes">❤️ ${(c.likes || 50000).toLocaleString()}</span>
+          </div>
+        `;
+        gallery.appendChild(item);
+      });
+    }
+
+    function setView(view) {
+      document.getElementById('btn-view-card').classList.toggle('active', view === 'card');
+      document.getElementById('btn-view-grid').classList.toggle('active', view === 'grid');
+      document.getElementById('inspector-view').style.display = view === 'card' ? 'flex' : 'none';
+      document.getElementById('grid-view').style.display = view === 'grid' ? 'block' : 'none';
+      if (view === 'card') renderCurrentCard();
+    }
+
+    async function triggerRecomposite() {
+      showToast("⚡ Calculating Procrustean face average across active faces...");
+      try {
+        const res = await fetch('/api/recomposite', { method: 'POST' });
+        const data = await res.json();
+        if (data.success) {
+          showToast(`✓ Composite Face Updated with ${data.count} pristine faces!`);
+        }
+      } catch (e) {
+        showToast("Error recompositing: " + e);
+      }
+    }
+
+    function showToast(msg) {
+      const toast = document.getElementById('toast');
+      toast.innerText = msg;
+      toast.classList.add('show');
+      setTimeout(() => toast.classList.remove('show'), 3000);
+    }
+
+    // Keyboard navigation
+    window.addEventListener('keydown', (e) => {
+      if (document.getElementById('inspector-view').style.display !== 'none') {
+        if (e.key === 'ArrowRight' || e.key === ' ' || e.key.toLowerCase() === 'a') {
+          e.preventDefault();
+          approveCurrent();
+        } else if (e.key === 'ArrowLeft' || e.key === 'Backspace' || e.key.toLowerCase() === 'x') {
+          e.preventDefault();
+          rejectCurrent();
+        }
+      }
+    });
+
+    loadCreators();
+    // Auto-sync incoming faces every 4 seconds in the background
+    setInterval(syncIncomingFaces, 4000);
+  </script>
+</body>
+</html>

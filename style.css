@@ -1,0 +1,175 @@
+/* ==========================================================================
+   THE MOST VIRAL FACE - FULLSCREEN 3D MASK & VERTICAL SCROLLING WALL
+   ========================================================================== */
+
+:root {
+  --bg-primary: #050507;
+  --text-primary: #ffffff;
+  --accent-cyan: #38bdf8;
+  --font-main: 'Outfit', -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+  --font-mono: 'JetBrains Mono', monospace;
+}
+
+* {
+  margin: 0;
+  padding: 0;
+  box-sizing: border-box;
+  -webkit-font-smoothing: antialiased;
+}
+
+html, body {
+  width: 100vw;
+  height: 100vh;
+  overflow: hidden;
+  background-color: var(--bg-primary);
+  font-family: var(--font-main);
+  color: var(--text-primary);
+  user-select: none;
+}
+
+/* ==========================================================================
+   1. WALL-TO-WALL VERTICAL SCROLLING GRID OF 1,000 FACES
+   ========================================================================== */
+#grid-viewport {
+  position: absolute;
+  inset: 0;
+  width: 100vw;
+  height: 100vh;
+  overflow: hidden;
+  z-index: 1;
+  cursor: grab;
+}
+
+#grid-viewport.grabbing {
+  cursor: grabbing;
+}
+
+/* Seamless Tiled Background Layer */
+#grid-tiled-bg {
+  position: absolute;
+  top: -100%;
+  left: 0;
+  width: 100%;
+  height: 300%;
+  background-image: url('assets/grid_1000.jpg');
+  background-repeat: repeat-y;
+  background-position: center 0;
+  background-size: 100% auto;
+  will-change: background-position;
+  transform: translate3d(0, 0, 0);
+}
+
+/* If wide desktop, maintain 25 faces per row proportion cleanly */
+@media (min-width: 1200px) {
+  #grid-tiled-bg {
+    background-size: 1600px 3200px;
+    background-repeat: repeat;
+  }
+}
+
+/* Interactive Hover Box for individual creators */
+#face-highlight-box {
+  position: absolute;
+  pointer-events: none;
+  border: 2px solid var(--accent-cyan);
+  box-shadow: 0 0 16px rgba(56, 189, 248, 0.85), inset 0 0 8px rgba(56, 189, 248, 0.5);
+  border-radius: 4px;
+  transition: opacity 0.12s ease, transform 0.06s ease;
+  opacity: 0;
+  z-index: 4;
+}
+
+/* ==========================================================================
+   2. 3D FLOATING MASK CENTERPIECE (FULL-FACE, SOFT SHADOW, NO BOUNCE)
+   ========================================================================== */
+.mask-stage {
+  position: absolute;
+  inset: 0;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  perspective: 1200px;
+  z-index: 10;
+  pointer-events: none;
+}
+
+.mask-wrapper {
+  position: relative;
+  width: min(440px, 82vw);
+  aspect-ratio: 860 / 916;
+  transform-style: preserve-3d;
+  will-change: transform;
+  pointer-events: auto;
+  cursor: grab;
+}
+
+.mask-wrapper:active {
+  cursor: grabbing;
+}
+
+/* The 3D Face Card: Steady position, no bouncing keyframes */
+.mask-card {
+  position: relative;
+  width: 100%;
+  height: 100%;
+  transform-style: preserve-3d;
+  transform: translateZ(40px);
+}
+
+/* Full Face Mask Image: Soft, elegant ambient drop shadow (not severe) */
+.mask-img {
+  position: absolute;
+  inset: 0;
+  width: 100%;
+  height: 100%;
+  object-fit: contain;
+  /* Gentle, subtle ambient shadow providing soft depth without harsh darkness */
+  filter: drop-shadow(0 14px 28px rgba(0, 0, 0, 0.35));
+  pointer-events: none;
+}
+
+/* ==========================================================================
+   3. CLEAN HOVER TOOLTIP FOR WATCHING REELS
+   ========================================================================== */
+.creator-tooltip {
+  position: absolute;
+  pointer-events: none;
+  background: rgba(10, 10, 15, 0.95);
+  backdrop-filter: blur(16px);
+  -webkit-backdrop-filter: blur(16px);
+  border: 1px solid rgba(255, 255, 255, 0.18);
+  border-radius: 10px;
+  padding: 8px 14px;
+  display: flex;
+  flex-direction: column;
+  gap: 3px;
+  box-shadow: 0 12px 30px rgba(0, 0, 0, 0.7);
+  z-index: 500;
+  transition: opacity 0.12s ease, transform 0.06s ease;
+  opacity: 0;
+  transform: translate(-50%, -125%);
+}
+
+.creator-tooltip .c-rank {
+  font-size: 11px;
+  font-family: var(--font-mono);
+  color: var(--accent-cyan);
+  font-weight: 700;
+}
+
+.creator-tooltip .c-handle {
+  font-size: 13px;
+  font-weight: 600;
+  color: #fff;
+}
+
+.creator-tooltip .c-hint {
+  font-size: 11px;
+  color: rgba(255, 255, 255, 0.55);
+}
+
+@media (max-width: 768px) {
+  .mask-wrapper {
+    width: min(340px, 84vw);
+  }
+}

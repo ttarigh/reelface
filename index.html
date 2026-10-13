@@ -1,0 +1,48 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+  <title>The Most Viral Face</title>
+  <meta name="description" content="1,000 viral talking-head creators with a 3D Procrustean face mask.">
+  <meta name="theme-color" content="#050507">
+  
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=JetBrains+Mono:wght@400;500;700&family=Outfit:wght@400;600;700&display=swap" rel="stylesheet">
+  
+  <link rel="stylesheet" href="style.css">
+</head>
+<body>
+
+  <!-- Curation Studio Quick Link -->
+  <a href="curate.html" style="position: fixed; top: 18px; right: 18px; z-index: 1000; background: rgba(18, 20, 29, 0.85); border: 1px solid rgba(255, 255, 255, 0.15); backdrop-filter: blur(12px); color: #f3f4f6; text-decoration: none; padding: 8px 16px; border-radius: 20px; font-family: 'Outfit', sans-serif; font-size: 0.82rem; font-weight: 600; display: flex; align-items: center; gap: 8px; box-shadow: 0 4px 20px rgba(0,0,0,0.5); transition: all 0.2s;">
+    <span style="color: #10b981;">✓</span><span style="color: #ef4444;">✕</span> Curation Studio
+  </a>
+
+  <!-- Wall-to-Wall Infinite Tiled Grid of 1,000 Faces (Vertical Drift) -->
+  <div id="grid-viewport">
+    <div id="grid-tiled-bg"></div>
+    <div id="face-highlight-box"></div>
+  </div>
+
+  <!-- Center 3D Floating Face Mask Stage -->
+  <div class="mask-stage" id="mask-stage">
+    <div class="mask-wrapper" id="mask-wrapper">
+      <div class="mask-card" id="mask-card">
+        <!-- Pure 3D Mask with Eye Cutouts (No glass rings, no bouncing) -->
+        <img id="mask-img" class="mask-img" src="assets/mask_1000_cutout.png?v=5" alt="Most Viral Face 3D Mask" draggable="false">
+      </div>
+    </div>
+  </div>
+
+  <!-- Clean Hover Tooltip for Reels -->
+  <div class="creator-tooltip" id="creator-tooltip">
+    <span class="c-rank" id="tooltip-rank">#0001</span>
+    <span class="c-handle" id="tooltip-handle">@creator</span>
+    <span class="c-hint">Click to watch Reel &rarr;</span>
+  </div>
+
+  <script src="app.js"></script>
+</body>
+</html>

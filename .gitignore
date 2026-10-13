@@ -1,0 +1,6 @@
+# Temporary & runtime cache
+.browser_session/
+__pycache__/
+*.pyc
+.DS_Store
+*.tmp
