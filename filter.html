@@ -1,0 +1,442 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+  <title>The Most Viral Face | Live Filter</title>
+  <meta name="theme-color" content="#000000">
+
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=JetBrains+Mono:wght@400;500&family=Outfit:wght@400;600&display=swap" rel="stylesheet">
+
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/three.js/r128/three.min.js"></script>
+  <script src="https://cdn.jsdelivr.net/npm/@mediapipe/camera_utils/camera_utils.js" crossorigin="anonymous"></script>
+  <script src="https://cdn.jsdelivr.net/npm/@mediapipe/face_mesh/face_mesh.js" crossorigin="anonymous"></script>
+  <script src="/face_model_data.js"></script>
+
+  <style>
+    * { box-sizing: border-box; margin: 0; padding: 0; }
+    html, body {
+      width: 100vw;
+      height: 100vh;
+      overflow: hidden;
+      background: #000;
+      color: #fff;
+      font-family: 'Outfit', sans-serif;
+      user-select: none;
+    }
+
+    #viewport {
+      position: absolute;
+      inset: 0;
+      width: 100vw;
+      height: 100vh;
+      overflow: hidden;
+    }
+
+    #webcam-video {
+      position: absolute;
+      inset: 0;
+      width: 100%;
+      height: 100%;
+      object-fit: cover;
+      transform: scaleX(-1);
+      z-index: 1;
+    }
+
+    #gl-canvas {
+      position: absolute;
+      inset: 0;
+      width: 100%;
+      height: 100%;
+      z-index: 2;
+      pointer-events: none;
+    }
+
+    .btn-back {
+      position: fixed;
+      top: 20px;
+      left: 20px;
+      z-index: 50;
+      background: rgba(10, 10, 15, 0.4);
+      backdrop-filter: blur(12px);
+      -webkit-backdrop-filter: blur(12px);
+      border: 1px solid rgba(255, 255, 255, 0.1);
+      color: rgba(255, 255, 255, 0.8);
+      text-decoration: none;
+      width: 38px;
+      height: 38px;
+      border-radius: 50%;
+      font-size: 1rem;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      transition: opacity 0.3s ease, background 0.2s ease;
+      opacity: 0.6;
+    }
+
+    .btn-back:hover {
+      opacity: 1;
+      background: rgba(20, 20, 30, 0.8);
+      color: #fff;
+    }
+
+    .controls-pill {
+      position: fixed;
+      bottom: 24px;
+      left: 50%;
+      transform: translateX(-50%);
+      z-index: 50;
+      background: rgba(10, 10, 15, 0.5);
+      backdrop-filter: blur(16px);
+      -webkit-backdrop-filter: blur(16px);
+      border: 1px solid rgba(255, 255, 255, 0.1);
+      border-radius: 30px;
+      padding: 8px 18px;
+      display: flex;
+      align-items: center;
+      gap: 16px;
+      transition: opacity 0.4s ease, transform 0.4s ease;
+      opacity: 1;
+    }
+
+    .controls-pill.idle {
+      opacity: 0;
+      pointer-events: none;
+      transform: translateX(-50%) translateY(8px);
+    }
+
+    .control-item {
+      display: flex;
+      align-items: center;
+      gap: 8px;
+    }
+
+    .control-label {
+      font-family: 'JetBrains Mono', monospace;
+      font-size: 0.68rem;
+      color: rgba(255, 255, 255, 0.55);
+      text-transform: uppercase;
+      letter-spacing: 0.04em;
+    }
+
+    input[type="range"] {
+      -webkit-appearance: none;
+      width: 68px;
+      height: 3px;
+      border-radius: 3px;
+      background: rgba(255, 255, 255, 0.22);
+      outline: none;
+    }
+
+    input[type="range"]::-webkit-slider-thumb {
+      -webkit-appearance: none;
+      width: 12px;
+      height: 12px;
+      border-radius: 50%;
+      background: #fff;
+      cursor: pointer;
+    }
+  </style>
+</head>
+<body>
+
+  <div id="viewport">
+    <video id="webcam-video" playsinline muted autoplay></video>
+    <canvas id="gl-canvas"></canvas>
+    <img id="ref-composite" src="/assets/composited_1000_faces.jpg" crossorigin="anonymous" style="display:none;">
+  </div>
+
+
+
+  <div class="controls-pill" id="controls-pill">
+    <div class="control-item">
+      <span class="control-label">Sculpt</span>
+      <input type="range" id="sculpt-slider" min="0" max="100" value="35">
+    </div>
+    <div class="control-item">
+      <span class="control-label">Opacity</span>
+      <input type="range" id="opacity-slider" min="0" max="100" value="95">
+    </div>
+  </div>
+
+  <script>
+  (function() {
+    'use strict';
+
+    const TOTAL_VERTS = 504; // 468 MediaPipe + 36 Forehead/Head Halo
+    const videoEl = document.getElementById('webcam-video');
+    const canvasEl = document.getElementById('gl-canvas');
+    const refImg = document.getElementById('ref-composite');
+    const controlsPill = document.getElementById('controls-pill');
+    const sculptSlider = document.getElementById('sculpt-slider');
+    const opacitySlider = document.getElementById('opacity-slider');
+
+    let sculptStrength = 0.35; // 35% expression morph + 65% 3D structural pose
+    let opacity = 0.95;
+    let idleTimer = null;
+    let uvCalibrated = false;
+    let isCalibratingRef = false;
+
+    function resetIdle() {
+      controlsPill.classList.remove('idle');
+      clearTimeout(idleTimer);
+      idleTimer = setTimeout(() => controlsPill.classList.add('idle'), 3000);
+    }
+    window.addEventListener('mousemove', resetIdle);
+    window.addEventListener('touchstart', resetIdle);
+    resetIdle();
+
+    sculptSlider.addEventListener('input', (e) => {
+      sculptStrength = parseInt(e.target.value, 10) / 100;
+    });
+
+    opacitySlider.addEventListener('input', (e) => {
+      opacity = parseInt(e.target.value, 10) / 100;
+      if (meshMaterial) meshMaterial.opacity = opacity;
+    });
+
+    // 1. THREE.JS 3D SCENE
+    const scene = new THREE.Scene();
+    const camera = new THREE.OrthographicCamera(0, window.innerWidth, 0, window.innerHeight, -2000, 2000);
+    const renderer = new THREE.WebGLRenderer({ canvas: canvasEl, alpha: true, antialias: true });
+    renderer.setPixelRatio(Math.min(window.devicePixelRatio, 2));
+    renderer.setSize(window.innerWidth, window.innerHeight);
+
+    const textureLoader = new THREE.TextureLoader();
+    const texCutout = textureLoader.load('/assets/mask_1000_cutout.png?v=12');
+
+    const geometry = new THREE.BufferGeometry();
+    const posArray = new Float32Array(TOTAL_VERTS * 3);
+    const smoothPos = new Float32Array(TOTAL_VERTS * 3);
+    let smoothInit = false;
+
+    const uvArray = new Float32Array(TOTAL_VERTS * 2);
+    for (let i = 0; i < TOTAL_VERTS; i++) {
+      uvArray[i * 2 + 0] = CANONICAL_UVS[i][0];
+      uvArray[i * 2 + 1] = 1.0 - CANONICAL_UVS[i][1];
+    }
+
+    geometry.setAttribute('position', new THREE.BufferAttribute(posArray, 3));
+    geometry.setAttribute('uv', new THREE.BufferAttribute(uvArray, 2));
+    geometry.setIndex(FACE_TRIANGLES.flat());
+
+    const meshMaterial = new THREE.MeshBasicMaterial({
+      map: texCutout,
+      transparent: true,
+      opacity: opacity,
+      side: THREE.DoubleSide,
+      depthTest: false,
+      depthWrite: false
+    });
+
+    const faceMesh3D = new THREE.Mesh(geometry, meshMaterial);
+    faceMesh3D.visible = false;
+    scene.add(faceMesh3D);
+
+    window.addEventListener('resize', () => {
+      const w = window.innerWidth;
+      const h = window.innerHeight;
+      camera.right = w;
+      camera.bottom = h;
+      camera.updateProjectionMatrix();
+      renderer.setSize(w, h);
+    });
+
+    function renderLoop() {
+      requestAnimationFrame(renderLoop);
+      renderer.render(scene, camera);
+    }
+    renderLoop();
+
+    // 2. MEDIAPIPE FACE MESH
+    const faceMesh = new FaceMesh({
+      locateFile: (file) => `https://cdn.jsdelivr.net/npm/@mediapipe/face_mesh/${file}`
+    });
+
+    faceMesh.setOptions({
+      maxNumFaces: 1,
+      refineLandmarks: true,
+      minDetectionConfidence: 0.5,
+      minTrackingConfidence: 0.5
+    });
+
+    // Helper: compute all 504 vertices (468 + 36 forehead/head halo)
+    function computeFull504(landmarks) {
+      const pts = new Array(TOTAL_VERTS);
+      for (let i = 0; i < 468; i++) {
+        pts[i] = { x: landmarks[i].x, y: landmarks[i].y, z: landmarks[i].z };
+      }
+      const center = pts[168];
+      for (let k = 0; k < HALO_EXPAND.length; k++) {
+        const [ovIdx, ex, ey] = HALO_EXPAND[k];
+        const ov = pts[ovIdx];
+        pts[468 + k] = {
+          x: center.x + (ov.x - center.x) * ex,
+          y: center.y + (ov.y - center.y) * ey,
+          z: center.z + (ov.z - center.z) * 1.2
+        };
+      }
+      return pts;
+    }
+
+    faceMesh.onResults((results) => {
+      if (!results.multiFaceLandmarks || results.multiFaceLandmarks.length === 0) {
+        if (isCalibratingRef) {
+          isCalibratingRef = false;
+        } else {
+          faceMesh3D.visible = false;
+        }
+        return;
+      }
+
+      const rawLandmarks = results.multiFaceLandmarks[0];
+
+      // One-time exact UV & Canonical 3D self-calibration directly on composited_1000_faces.jpg
+      if (isCalibratingRef && !uvCalibrated) {
+        const refPts = computeFull504(rawLandmarks);
+        const uvs = geometry.attributes.uv.array;
+        for (let i = 0; i < TOTAL_VERTS; i++) {
+          uvs[i * 2 + 0] = Math.max(0, Math.min(1, refPts[i].x));
+          uvs[i * 2 + 1] = 1.0 - Math.max(0, Math.min(1, refPts[i].y));
+        }
+        geometry.attributes.uv.needsUpdate = true;
+
+        // Also calibrate CANONICAL_3D in local head basis of the composite image
+        const c168 = refPts[168];
+        const eyeW = Math.hypot(refPts[263].x - refPts[33].x, refPts[263].y - refPts[33].y);
+        const faceH = Math.hypot(refPts[152].x - refPts[10].x, refPts[152].y - refPts[10].y);
+        for (let i = 0; i < TOTAL_VERTS; i++) {
+          CANONICAL_3D[i][0] = (refPts[i].x - c168.x) / eyeW;
+          CANONICAL_3D[i][1] = (refPts[i].y - c168.y) / faceH;
+          CANONICAL_3D[i][2] = (refPts[i].z - c168.z) / eyeW;
+        }
+        uvCalibrated = true;
+        isCalibratingRef = false;
+        return;
+      }
+
+      faceMesh3D.visible = opacity > 0.01;
+
+      const screenW = window.innerWidth;
+      const screenH = window.innerHeight;
+      const videoW = videoEl.videoWidth || 1280;
+      const videoH = videoEl.videoHeight || 720;
+
+      const videoAspect = videoW / videoH;
+      const screenAspect = screenW / screenH;
+      let renderW, renderH, offsetX, offsetY;
+
+      if (screenAspect > videoAspect) {
+        renderW = screenW;
+        renderH = screenW / videoAspect;
+        offsetX = 0;
+        offsetY = (screenH - renderH) / 2;
+      } else {
+        renderH = screenH;
+        renderW = screenH * videoAspect;
+        offsetX = (screenW - renderW) / 2;
+        offsetY = 0;
+      }
+
+      // Convert all 504 live points to mirrored screen 3D space
+      const fullLive = computeFull504(rawLandmarks);
+      const liveScreen = new Array(TOTAL_VERTS);
+      for (let i = 0; i < TOTAL_VERTS; i++) {
+        const pt = fullLive[i];
+        liveScreen[i] = {
+          x: offsetX + (1.0 - pt.x) * renderW,
+          y: offsetY + pt.y * renderH,
+          z: -pt.z * renderW
+        };
+      }
+
+      // Compute 3D Rigid Head Coordinate Frame (Center, RightAxis, DownAxis, ForwardAxis)
+      const center = liveScreen[168];
+      // In mirrored view, landmark 263 is on viewer's left, 33 is on viewer's right
+      // Wait: in non-mirrored image, 33 is left (x ~ 0.36) and 263 is right (x ~ 0.64).
+      // Since we mirror X: (1 - pt.x), 33 is on the right and 263 is on the left.
+      // Let rightVec point from 33 to 263 so it matches CANONICAL_3D[i][0] sign!
+      let rx = liveScreen[263].x - liveScreen[33].x;
+      let ry = liveScreen[263].y - liveScreen[33].y;
+      let rz = liveScreen[263].z - liveScreen[33].z;
+      const eyeW = Math.hypot(rx, ry, rz) || 1;
+      rx /= eyeW; ry /= eyeW; rz /= eyeW;
+
+      let dx = liveScreen[152].x - liveScreen[10].x;
+      let dy = liveScreen[152].y - liveScreen[10].y;
+      let dz = liveScreen[152].z - liveScreen[10].z;
+      const faceH = Math.hypot(dx, dy, dz) || 1;
+      dx /= faceH; dy /= faceH; dz /= faceH;
+
+      // Cross product for forward Z axis
+      let fx = ry * dz - rz * dy;
+      let fy = rz * dx - rx * dz;
+      let fz = rx * dy - ry * dx;
+      const fLen = Math.hypot(fx, fy, fz) || 1;
+      fx /= fLen; fy /= fLen; fz /= fLen;
+
+      const positions = geometry.attributes.position.array;
+      const damp = 0.55; // Temporal smoothing
+
+      for (let i = 0; i < TOTAL_VERTS; i++) {
+        const [cx, cy, cz] = CANONICAL_3D[i];
+
+        // 1. 3D Pose-Aligned Undistorted Mask Position (fits head width, height, 3D yaw/pitch/roll)
+        const rigidX = center.x + cx * eyeW * rx + cy * faceH * dx + cz * eyeW * fx;
+        const rigidY = center.y + cx * eyeW * ry + cy * faceH * dy + cz * eyeW * fy;
+        const rigidZ = center.z + cx * eyeW * rz + cy * faceH * dz + cz * eyeW * fz;
+
+        // 2. Blend 3D Rigid Pose with Live Expression Sculpting
+        const targetX = rigidX + (liveScreen[i].x - rigidX) * sculptStrength;
+        const targetY = rigidY + (liveScreen[i].y - rigidY) * sculptStrength;
+        const targetZ = rigidZ + (liveScreen[i].z - rigidZ) * sculptStrength;
+
+        if (!smoothInit) {
+          smoothPos[i * 3 + 0] = targetX;
+          smoothPos[i * 3 + 1] = targetY;
+          smoothPos[i * 3 + 2] = targetZ;
+        } else {
+          smoothPos[i * 3 + 0] += (targetX - smoothPos[i * 3 + 0]) * damp;
+          smoothPos[i * 3 + 1] += (targetY - smoothPos[i * 3 + 1]) * damp;
+          smoothPos[i * 3 + 2] += (targetZ - smoothPos[i * 3 + 2]) * damp;
+        }
+
+        positions[i * 3 + 0] = smoothPos[i * 3 + 0];
+        positions[i * 3 + 1] = smoothPos[i * 3 + 1];
+        positions[i * 3 + 2] = smoothPos[i * 3 + 2];
+      }
+      smoothInit = true;
+      geometry.attributes.position.needsUpdate = true;
+    });
+
+    // Auto-start camera & calibrate reference composite
+    async function init() {
+      if (refImg.complete && refImg.naturalWidth > 0) {
+        isCalibratingRef = true;
+        await faceMesh.send({ image: refImg });
+      } else {
+        refImg.onload = async () => {
+          isCalibratingRef = true;
+          await faceMesh.send({ image: refImg });
+        };
+      }
+
+      const cameraSource = new Camera(videoEl, {
+        onFrame: async () => {
+          if (!isCalibratingRef) {
+            await faceMesh.send({ image: videoEl });
+          }
+        },
+        width: 1280,
+        height: 720
+      });
+      await cameraSource.start();
+    }
+
+    init();
+  })();
+  </script>
+</body>
+</html>

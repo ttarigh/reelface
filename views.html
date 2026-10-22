@@ -1,0 +1,899 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+  <title>The Most Viral Face | 3D Mask Studio</title>
+  <meta name="theme-color" content="#050507">
+
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=JetBrains+Mono:wght@400;500;600&family=Outfit:wght@400;500;600;700&display=swap" rel="stylesheet">
+
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/three.js/r128/three.min.js"></script>
+  <script src="https://cdn.jsdelivr.net/npm/@mediapipe/camera_utils/camera_utils.js" crossorigin="anonymous"></script>
+  <script src="https://cdn.jsdelivr.net/npm/@mediapipe/face_mesh/face_mesh.js" crossorigin="anonymous"></script>
+
+  <style>
+    * { box-sizing: border-box; margin: 0; padding: 0; }
+    html, body {
+      width: 100vw;
+      height: 100vh;
+      overflow: hidden;
+      background-color: #050507;
+      font-family: 'Outfit', -apple-system, sans-serif;
+      user-select: none;
+      transition: background-color 0.35s ease;
+    }
+
+    body.bg-white {
+      background-color: #ffffff;
+    }
+
+    body.bg-black {
+      background-color: #050507;
+    }
+
+    /* ==========================================================================
+       BACKGROUND LAYER 1: MOVING GRID OF 1,000 REELS
+       ========================================================================== */
+    #bg-grid-layer {
+      position: absolute;
+      inset: 0;
+      width: 100vw;
+      height: 100vh;
+      overflow: hidden;
+      z-index: 1;
+      opacity: 0;
+      pointer-events: none;
+      transition: opacity 0.4s ease;
+    }
+
+    body.bg-grid #bg-grid-layer {
+      opacity: 1;
+    }
+
+    #grid-tiled-bg {
+      position: absolute;
+      top: -100%;
+      left: 0;
+      width: 100%;
+      height: 300%;
+      background-image: url('/assets/grid_1000.jpg');
+      background-repeat: repeat-y;
+      background-position: center 0;
+      background-size: 100% auto;
+      will-change: background-position;
+    }
+
+    @media (min-width: 1200px) {
+      #grid-tiled-bg {
+        background-size: 1600px 3200px;
+        background-repeat: repeat;
+      }
+    }
+
+    /* ==========================================================================
+       BACKGROUND LAYER 2: SINGULAR REEL SCROLLING VERTICALLY FROM BOTTOM
+       ========================================================================== */
+    #bg-reel-layer {
+      position: absolute;
+      inset: 0;
+      width: 100vw;
+      height: 100vh;
+      overflow: hidden;
+      z-index: 2;
+      opacity: 0;
+      pointer-events: none;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      background: #050507;
+      transition: opacity 0.4s ease;
+    }
+
+    body.bg-reel #bg-reel-layer {
+      opacity: 1;
+    }
+
+    #reel-feed-viewport {
+      position: relative;
+      height: 100vh;
+      aspect-ratio: 9 / 16;
+      max-width: 100vw;
+      overflow: hidden;
+      box-shadow: 0 0 80px rgba(0, 0, 0, 0.9);
+      background: #0a0a0f;
+    }
+
+    #reel-strip {
+      position: absolute;
+      top: 0;
+      left: 0;
+      width: 100%;
+      will-change: transform;
+    }
+
+    .reel-slide {
+      position: relative;
+      width: 100%;
+      height: 100vh;
+      overflow: hidden;
+      border-bottom: 2px solid rgba(255, 255, 255, 0.08);
+    }
+
+    .reel-slide img {
+      width: 100%;
+      height: 100%;
+      object-fit: cover;
+      display: block;
+    }
+
+    .reel-meta {
+      position: absolute;
+      bottom: 84px;
+      left: 20px;
+      right: 20px;
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      color: #fff;
+      text-shadow: 0 2px 10px rgba(0, 0, 0, 0.85);
+      font-size: 0.9rem;
+      font-weight: 600;
+      pointer-events: none;
+    }
+
+    .reel-meta .likes-pill {
+      font-family: 'JetBrains Mono', monospace;
+      font-size: 0.76rem;
+      background: rgba(0, 0, 0, 0.55);
+      backdrop-filter: blur(8px);
+      padding: 4px 10px;
+      border-radius: 12px;
+      border: 1px solid rgba(255, 255, 255, 0.15);
+    }
+
+    /* ==========================================================================
+       FOREGROUND LAYER: 3D INTERACTIVE TWIRLABLE MASK STAGE
+       ========================================================================== */
+    #gl-stage {
+      position: absolute;
+      inset: 0;
+      width: 100vw;
+      height: 100vh;
+      z-index: 10;
+      cursor: grab;
+    }
+
+    #gl-stage:active {
+      cursor: grabbing;
+    }
+
+    /* ==========================================================================
+       DRAGGABLE & RESIZABLE FLOATING CAMERA POPUP
+       ========================================================================== */
+    .camera-popup {
+      position: fixed;
+      top: 24px;
+      right: 24px;
+      width: 240px;
+      height: 180px;
+      min-width: 160px;
+      min-height: 120px;
+      max-width: 500px;
+      max-height: 400px;
+      z-index: 60;
+      background: rgba(12, 14, 20, 0.82);
+      backdrop-filter: blur(20px);
+      -webkit-backdrop-filter: blur(20px);
+      border: 1px solid rgba(255, 255, 255, 0.18);
+      border-radius: 16px;
+      box-shadow: 0 16px 40px rgba(0, 0, 0, 0.6);
+      display: none;
+      flex-direction: column;
+      overflow: hidden;
+      transform: translate3d(0, 0, 0);
+    }
+
+    .camera-popup.active {
+      display: flex;
+    }
+
+    .popup-header {
+      padding: 8px 12px;
+      background: rgba(255, 255, 255, 0.05);
+      border-bottom: 1px solid rgba(255, 255, 255, 0.08);
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      cursor: move;
+      user-select: none;
+    }
+
+    .popup-title {
+      font-family: 'JetBrains Mono', monospace;
+      font-size: 0.72rem;
+      letter-spacing: 0.04em;
+      color: rgba(255, 255, 255, 0.85);
+      display: flex;
+      align-items: center;
+      gap: 6px;
+    }
+
+    .popup-title .live-dot {
+      color: #10b981;
+      font-size: 0.65rem;
+      animation: pulse 1.8s infinite;
+    }
+
+    @keyframes pulse {
+      0%, 100% { opacity: 1; transform: scale(1); }
+      50% { opacity: 0.4; transform: scale(0.85); }
+    }
+
+    .popup-close {
+      background: transparent;
+      border: none;
+      color: rgba(255, 255, 255, 0.5);
+      font-size: 1.1rem;
+      line-height: 1;
+      cursor: pointer;
+      padding: 2px 6px;
+      border-radius: 4px;
+      transition: color 0.15s, background 0.15s;
+    }
+
+    .popup-close:hover {
+      color: #fff;
+      background: rgba(255, 255, 255, 0.15);
+    }
+
+    .popup-body {
+      position: relative;
+      flex: 1;
+      background: #000;
+      overflow: hidden;
+    }
+
+    #webcam-pip-video {
+      width: 100%;
+      height: 100%;
+      object-fit: cover;
+      transform: scaleX(-1); /* Mirror view */
+    }
+
+    .popup-resize-handle {
+      position: absolute;
+      bottom: 2px;
+      right: 2px;
+      width: 16px;
+      height: 16px;
+      cursor: nwse-resize;
+      background: linear-gradient(135deg, transparent 50%, rgba(255, 255, 255, 0.4) 50%, transparent 60%, rgba(255, 255, 255, 0.4) 60%, transparent 70%);
+      z-index: 10;
+    }
+
+    /* ==========================================================================
+       MINIMAL FLOATING UI DOCK
+       ========================================================================= */
+    .ui-dock {
+      position: fixed;
+      bottom: 24px;
+      left: 50%;
+      transform: translateX(-50%);
+      z-index: 50;
+      background: rgba(12, 13, 19, 0.75);
+      backdrop-filter: blur(20px);
+      -webkit-backdrop-filter: blur(20px);
+      border: 1px solid rgba(255, 255, 255, 0.14);
+      padding: 6px;
+      border-radius: 999px;
+      display: flex;
+      align-items: center;
+      gap: 4px;
+      box-shadow: 0 12px 36px rgba(0, 0, 0, 0.45);
+      transition: background 0.3s, border-color 0.3s;
+      max-width: 95vw;
+      overflow-x: auto;
+    }
+
+    body.bg-white .ui-dock {
+      background: rgba(245, 245, 248, 0.85);
+      border-color: rgba(0, 0, 0, 0.12);
+      box-shadow: 0 12px 36px rgba(0, 0, 0, 0.12);
+    }
+
+    .mode-btn {
+      background: transparent;
+      border: none;
+      color: rgba(255, 255, 255, 0.65);
+      font-family: 'Outfit', sans-serif;
+      font-size: 0.82rem;
+      font-weight: 600;
+      padding: 8px 15px;
+      border-radius: 999px;
+      cursor: pointer;
+      transition: all 0.2s ease;
+      white-space: nowrap;
+      text-decoration: none;
+      display: flex;
+      align-items: center;
+      gap: 6px;
+    }
+
+    body.bg-white .mode-btn {
+      color: rgba(0, 0, 0, 0.55);
+    }
+
+    .mode-btn:hover {
+      color: #fff;
+    }
+
+    body.bg-white .mode-btn:hover {
+      color: #000;
+    }
+
+    .mode-btn.active {
+      background: #ffffff;
+      color: #050507;
+      box-shadow: 0 2px 10px rgba(0, 0, 0, 0.2);
+    }
+
+    body.bg-white .mode-btn.active {
+      background: #050507;
+      color: #ffffff;
+    }
+
+    .dock-divider {
+      width: 1px;
+      height: 18px;
+      background: rgba(255, 255, 255, 0.15);
+      margin: 0 4px;
+      flex-shrink: 0;
+    }
+
+    body.bg-white .dock-divider {
+      background: rgba(0, 0, 0, 0.12);
+    }
+
+    .hint-badge {
+      position: fixed;
+      top: 20px;
+      left: 50%;
+      transform: translateX(-50%);
+      z-index: 40;
+      font-family: 'JetBrains Mono', monospace;
+      font-size: 0.72rem;
+      letter-spacing: 0.04em;
+      text-transform: uppercase;
+      color: rgba(255, 255, 255, 0.45);
+      pointer-events: none;
+      transition: color 0.3s, opacity 0.5s;
+    }
+
+    body.bg-white .hint-badge {
+      color: rgba(0, 0, 0, 0.4);
+    }
+  </style>
+</head>
+<body class="bg-black">
+
+  <!-- Background Mode 3: Moving Grid of 1,000 Reels -->
+  <div id="bg-grid-layer">
+    <div id="grid-tiled-bg"></div>
+  </div>
+
+  <!-- Background Mode 4: Singular Reel Scrolling Vertically -->
+  <div id="bg-reel-layer">
+    <div id="reel-feed-viewport">
+      <div id="reel-strip"></div>
+    </div>
+  </div>
+
+  <!-- Foreground: Interactive 3D WebGL Mask Stage -->
+  <canvas id="gl-stage"></canvas>
+
+  <!-- Draggable & Resizable Floating Camera Popup -->
+  <div class="camera-popup" id="camera-popup">
+    <div class="popup-header" id="popup-header">
+      <span class="popup-title"><span class="live-dot">●</span> Head Tracking</span>
+      <button class="popup-close" id="popup-close">&times;</button>
+    </div>
+    <div class="popup-body">
+      <video id="webcam-pip-video" playsinline muted autoplay></video>
+    </div>
+    <div class="popup-resize-handle" id="popup-resize"></div>
+  </div>
+
+  <div class="hint-badge" id="hint-badge">Drag to twirl 360° &bull; Turn on Camera to twirl with your head</div>
+
+  <!-- Minimal Switcher Dock -->
+  <div class="ui-dock">
+    <button class="mode-btn active" data-bg="black">Black</button>
+    <button class="mode-btn" data-bg="white">White</button>
+    <button class="mode-btn" data-bg="grid">Moving Grid</button>
+    <button class="mode-btn" data-bg="reel">Single Reel Scroll</button>
+    <div class="dock-divider"></div>
+    <button class="mode-btn active" id="btn-toggle-mask">Mask: On</button>
+    <button class="mode-btn" id="btn-camera-track">📷 Head-Track: Off</button>
+    <button class="mode-btn" id="btn-auto-spin">Auto-Twirl: Off</button>
+    <div class="dock-divider"></div>
+    <a href="/credits" class="mode-btn" style="color: #38bdf8;">Credits &rarr;</a>
+  </div>
+
+  <script>
+  (function() {
+    'use strict';
+
+    // ==========================================================================
+    // 1. BACKGROUND MODE SWITCHER & ANIMATIONS
+    // ==========================================================================
+    const body = document.body;
+    const modeBtns = document.querySelectorAll('.mode-btn[data-bg]');
+    const elGridBg = document.getElementById('grid-tiled-bg');
+    const elReelStrip = document.getElementById('reel-strip');
+    const btnAutoSpin = document.getElementById('btn-auto-spin');
+    const btnCameraTrack = document.getElementById('btn-camera-track');
+    const cameraPopup = document.getElementById('camera-popup');
+    const popupHeader = document.getElementById('popup-header');
+    const popupResize = document.getElementById('popup-resize');
+    const popupClose = document.getElementById('popup-close');
+    const pipVideo = document.getElementById('webcam-pip-video');
+
+    let currentBgMode = 'black';
+    let gridScrollY = 0;
+    let reelScrollY = 0;
+    let creators = [];
+    let reelPool = [];
+    const POOL_SIZE = 6;
+    let nextCreatorIdx = 0;
+
+    modeBtns.forEach(btn => {
+      btn.addEventListener('click', () => {
+        modeBtns.forEach(b => b.classList.remove('active'));
+        btn.classList.add('active');
+        currentBgMode = btn.getAttribute('data-bg');
+        body.className = `bg-${currentBgMode}`;
+      });
+    });
+
+    async function loadCreators() {
+      try {
+        const res = await fetch('/assets/creators.json');
+        creators = await res.json();
+        initReelStrip();
+      } catch (e) {
+        console.warn('Could not load creators.json', e);
+      }
+    }
+
+    function createReelSlide(creator) {
+      const div = document.createElement('div');
+      div.className = 'reel-slide';
+      const img = document.createElement('img');
+      img.src = `/talking_head_photos_100/${creator.photo}`;
+      img.alt = `@${creator.handle}`;
+      const meta = document.createElement('div');
+      meta.className = 'reel-meta';
+      meta.innerHTML = `
+        <span>@${creator.handle}</span>
+        <span class="likes-pill">&hearts; ${(creator.likes || 50000).toLocaleString()}</span>
+      `;
+      div.appendChild(img);
+      div.appendChild(meta);
+      return div;
+    }
+
+    function initReelStrip() {
+      if (!creators.length) return;
+      elReelStrip.innerHTML = '';
+      reelPool = [];
+      for (let i = 0; i < POOL_SIZE; i++) {
+        const c = creators[nextCreatorIdx % creators.length];
+        nextCreatorIdx++;
+        const slide = createReelSlide(c);
+        elReelStrip.appendChild(slide);
+        reelPool.push(slide);
+      }
+    }
+
+    loadCreators();
+
+    // ==========================================================================
+    // 2. THREE.JS 3D VOLUMETRIC SCULPTED MASK CAPTURE
+    // ==========================================================================
+    const canvas = document.getElementById('gl-stage');
+    const scene = new THREE.Scene();
+
+    const camera = new THREE.PerspectiveCamera(38, window.innerWidth / window.innerHeight, 0.1, 100);
+    camera.position.set(0, 0, 14.5);
+
+    const renderer = new THREE.WebGLRenderer({
+      canvas,
+      alpha: true,
+      antialias: true,
+      powerPreference: 'high-performance'
+    });
+    renderer.setPixelRatio(Math.min(window.devicePixelRatio, 2));
+    renderer.setSize(window.innerWidth, window.innerHeight);
+
+    const maskGroup = new THREE.Group();
+    scene.add(maskGroup);
+
+    const loader = new THREE.TextureLoader();
+    const colorTex = loader.load('/assets/mask_1000_cutout.png?v=20');
+    const depthTex = loader.load('/assets/mask_depth.png?v=20');
+
+    const planeGeo = new THREE.PlaneGeometry(6.8, 8.5, 180, 225);
+
+    const maskMaterial = new THREE.ShaderMaterial({
+      uniforms: {
+        uColorMap: { value: colorTex },
+        uDepthMap: { value: depthTex },
+        uDepthScale: { value: 1.15 }
+      },
+      vertexShader: `
+        uniform sampler2D uDepthMap;
+        uniform float uDepthScale;
+        varying vec2 vUv;
+        varying vec3 vViewPosition;
+        varying vec3 vNormalApprox;
+
+        void main() {
+          vUv = uv;
+          float d = texture2D(uDepthMap, uv).r;
+
+          float eps = 1.0 / 256.0;
+          float dR = texture2D(uDepthMap, uv + vec2(eps, 0.0)).r;
+          float dU = texture2D(uDepthMap, uv + vec2(0.0, eps)).r;
+          vec3 n = normalize(vec3((d - dR) * uDepthScale * 18.0, (d - dU) * uDepthScale * 18.0, 1.0));
+          vNormalApprox = normalize(normalMatrix * n);
+
+          vec3 displaced = position + vec3(0.0, 0.0, (d - 0.35) * uDepthScale);
+          vec4 mvPosition = modelViewMatrix * vec4(displaced, 1.0);
+          vViewPosition = -mvPosition.xyz;
+          gl_Position = projectionMatrix * mvPosition;
+        }
+      `,
+      fragmentShader: `
+        uniform sampler2D uColorMap;
+        uniform sampler2D uDepthMap;
+        varying vec2 vUv;
+        varying vec3 vViewPosition;
+        varying vec3 vNormalApprox;
+
+        void main() {
+          vec4 texColor = texture2D(uColorMap, vUv);
+          if (texColor.a < 0.12) discard;
+
+          vec3 normal = normalize(vNormalApprox);
+          if (!gl_FrontFacing) {
+            normal = -normal;
+          }
+
+          vec3 viewDir = normalize(vViewPosition);
+          vec3 lightDir = normalize(vec3(0.35, 0.45, 1.0));
+
+          float diff = max(dot(normal, lightDir), 0.0);
+          float fresnel = pow(1.0 - max(dot(normal, viewDir), 0.0), 2.5);
+
+          vec3 baseCol = texColor.rgb;
+          if (!gl_FrontFacing) {
+            baseCol *= 0.78;
+          }
+
+          vec3 finalCol = baseCol * (0.86 + 0.18 * diff) + vec3(0.07) * fresnel;
+          gl_FragColor = vec4(finalCol, texColor.a);
+        }
+      `,
+      side: THREE.DoubleSide,
+      transparent: true
+    });
+
+    const maskMesh = new THREE.Mesh(planeGeo, maskMaterial);
+    maskGroup.add(maskMesh);
+
+    // ==========================================================================
+    // 3. MOUSE TWIRL INTERACTION WITH INERTIA
+    // ==========================================================================
+    let isDragging = false;
+    let prevMouse = { x: 0, y: 0 };
+    let rotY = 0.0;
+    let rotX = 0.0;
+    let velY = 0.0;
+    let velX = 0.0;
+    let targetZoom = 14.5;
+    let autoSpin = false;
+
+    // Head Tracking State
+    let isHeadTrackingActive = false;
+    let targetHeadRotY = 0.0;
+    let targetHeadRotX = 0.0;
+    let targetHeadRotZ = 0.0;
+    let currentHeadRotY = 0.0;
+    let currentHeadRotX = 0.0;
+    let currentHeadRotZ = 0.0;
+    let faceMesh = null;
+    let cameraSource = null;
+
+    const btnToggleMask = document.getElementById('btn-toggle-mask');
+    let isMaskVisible = true;
+
+    btnToggleMask.addEventListener('click', () => {
+      isMaskVisible = !isMaskVisible;
+      maskGroup.visible = isMaskVisible;
+      btnToggleMask.textContent = `Mask: ${isMaskVisible ? 'On' : 'Off'}`;
+      btnToggleMask.classList.toggle('active', isMaskVisible);
+      document.getElementById('hint-badge').style.opacity = isMaskVisible ? '' : '0';
+    });
+
+    btnAutoSpin.addEventListener('click', () => {
+      autoSpin = !autoSpin;
+      btnAutoSpin.textContent = `Auto-Twirl: ${autoSpin ? 'On' : 'Off'}`;
+      btnAutoSpin.classList.toggle('active', autoSpin);
+    });
+
+    canvas.addEventListener('pointerdown', (e) => {
+      isDragging = true;
+      prevMouse.x = e.clientX;
+      prevMouse.y = e.clientY;
+      velX = 0;
+      velY = 0;
+      document.getElementById('hint-badge').style.opacity = '0';
+    });
+
+    window.addEventListener('pointermove', (e) => {
+      if (!isDragging) return;
+      const dx = e.clientX - prevMouse.x;
+      const dy = e.clientY - prevMouse.y;
+      prevMouse.x = e.clientX;
+      prevMouse.y = e.clientY;
+
+      velY = dx * 0.0085;
+      velX = dy * 0.0085;
+      rotY += velY;
+      rotX = Math.max(-Math.PI * 0.48, Math.min(Math.PI * 0.48, rotX + velX));
+    });
+
+    window.addEventListener('pointerup', () => {
+      isDragging = false;
+    });
+
+    canvas.addEventListener('wheel', (e) => {
+      e.preventDefault();
+      targetZoom = Math.max(7.5, Math.min(24.0, targetZoom + e.deltaY * 0.008));
+    }, { passive: false });
+
+    canvas.addEventListener('dblclick', () => {
+      rotX = 0;
+      rotY = 0;
+      velX = 0;
+      velY = 0;
+      targetZoom = 14.5;
+    });
+
+    window.addEventListener('resize', () => {
+      camera.aspect = window.innerWidth / window.innerHeight;
+      camera.updateProjectionMatrix();
+      renderer.setSize(window.innerWidth, window.innerHeight);
+    });
+
+    // ==========================================================================
+    // 4. WEBCAM HEAD TRACKING & DRAGGABLE/RESIZABLE POPUP
+    // ==========================================================================
+    async function startHeadTracking() {
+      cameraPopup.classList.add('active');
+      btnCameraTrack.textContent = '📷 Head-Track: On';
+      btnCameraTrack.classList.add('active');
+      isHeadTrackingActive = true;
+
+      if (!faceMesh) {
+        faceMesh = new FaceMesh({
+          locateFile: (file) => `https://cdn.jsdelivr.net/npm/@mediapipe/face_mesh/${file}`
+        });
+
+        faceMesh.setOptions({
+          maxNumFaces: 1,
+          refineLandmarks: true,
+          minDetectionConfidence: 0.5,
+          minTrackingConfidence: 0.5
+        });
+
+        faceMesh.onResults((results) => {
+          if (!isHeadTrackingActive) return;
+          if (results.multiFaceLandmarks && results.multiFaceLandmarks.length > 0) {
+            const lms = results.multiFaceLandmarks[0];
+
+            // Key landmarks:
+            // 33: left eye outer, 263: right eye outer, 1: nose tip, 168: nose bridge
+            const lEye = lms[33];
+            const rEye = lms[263];
+            const noseTip = lms[1];
+            const midEyeX = (lEye.x + rEye.x) / 2;
+            const midEyeY = (lEye.y + rEye.y) / 2;
+            const eyeDist = Math.hypot(rEye.x - lEye.x, rEye.y - lEye.y) || 0.1;
+
+            // Yaw: inverting sign so moving head left turns the 3D mask to the left
+            const dx = (noseTip.x - midEyeX) / eyeDist;
+            targetHeadRotY = -dx * 2.8;
+
+            // Pitch: nose vertical distance from eye level
+            const dy = (noseTip.y - midEyeY) / eyeDist - 0.44;
+            targetHeadRotX = dy * 2.2;
+
+            // Roll: eye line tilt
+            const rollAngle = Math.atan2(rEye.y - lEye.y, rEye.x - lEye.x);
+            targetHeadRotZ = rollAngle * 1.2;
+          }
+        });
+
+        cameraSource = new Camera(pipVideo, {
+          onFrame: async () => {
+            if (isHeadTrackingActive && faceMesh) {
+              await faceMesh.send({ image: pipVideo });
+            }
+          },
+          width: 640,
+          height: 480
+        });
+        await cameraSource.start();
+      }
+    }
+
+    function stopHeadTracking() {
+      isHeadTrackingActive = false;
+      cameraPopup.classList.remove('active');
+      btnCameraTrack.textContent = '📷 Head-Track: Off';
+      btnCameraTrack.classList.remove('active');
+      targetHeadRotY = 0;
+      targetHeadRotX = 0;
+      targetHeadRotZ = 0;
+    }
+
+    btnCameraTrack.addEventListener('click', () => {
+      if (isHeadTrackingActive) {
+        stopHeadTracking();
+      } else {
+        startHeadTracking();
+      }
+    });
+
+    popupClose.addEventListener('click', stopHeadTracking);
+
+    // Draggable Popup Logic
+    let isDraggingPopup = false;
+    let dragOffset = { x: 0, y: 0 };
+
+    popupHeader.addEventListener('pointerdown', (e) => {
+      isDraggingPopup = true;
+      const rect = cameraPopup.getBoundingClientRect();
+      dragOffset.x = e.clientX - rect.left;
+      dragOffset.y = e.clientY - rect.top;
+      popupHeader.setPointerCapture(e.pointerId);
+    });
+
+    popupHeader.addEventListener('pointermove', (e) => {
+      if (!isDraggingPopup) return;
+      const x = Math.max(10, Math.min(window.innerWidth - cameraPopup.offsetWidth - 10, e.clientX - dragOffset.x));
+      const y = Math.max(10, Math.min(window.innerHeight - cameraPopup.offsetHeight - 10, e.clientY - dragOffset.y));
+      cameraPopup.style.left = `${x}px`;
+      cameraPopup.style.top = `${y}px`;
+      cameraPopup.style.right = 'auto';
+    });
+
+    popupHeader.addEventListener('pointerup', (e) => {
+      isDraggingPopup = false;
+    });
+
+    // Resizable Popup Logic
+    let isResizingPopup = false;
+    let startResize = { x: 0, y: 0, w: 0, h: 0 };
+
+    popupResize.addEventListener('pointerdown', (e) => {
+      e.stopPropagation();
+      isResizingPopup = true;
+      startResize.x = e.clientX;
+      startResize.y = e.clientY;
+      startResize.w = cameraPopup.offsetWidth;
+      startResize.h = cameraPopup.offsetHeight;
+      popupResize.setPointerCapture(e.pointerId);
+    });
+
+    popupResize.addEventListener('pointermove', (e) => {
+      if (!isResizingPopup) return;
+      const dw = e.clientX - startResize.x;
+      const dh = e.clientY - startResize.y;
+      const newW = Math.max(160, Math.min(500, startResize.w + dw));
+      const newH = Math.max(120, Math.min(400, startResize.h + dh));
+      cameraPopup.style.width = `${newW}px`;
+      cameraPopup.style.height = `${newH}px`;
+    });
+
+    popupResize.addEventListener('pointerup', (e) => {
+      isResizingPopup = false;
+    });
+
+    // ==========================================================================
+    // 5. MASTER ANIMATION LOOP
+    // ==========================================================================
+    let lastTime = performance.now();
+
+    function animate(now) {
+      const dt = Math.min((now - lastTime) / 1000, 0.1);
+      lastTime = now;
+
+      // 1. Update 3D Mask Rotation & Inertia
+      if (!isDragging) {
+        if (autoSpin) {
+          rotY += 0.65 * dt;
+        } else {
+          rotY += velY;
+          rotX = Math.max(-Math.PI * 0.48, Math.min(Math.PI * 0.48, rotX + velX));
+          velY *= 0.94;
+          velX *= 0.94;
+        }
+      }
+
+      // Smooth Head Tracking Interpolation (lerp)
+      if (isHeadTrackingActive) {
+        currentHeadRotY += (targetHeadRotY - currentHeadRotY) * 0.14;
+        currentHeadRotX += (targetHeadRotX - currentHeadRotX) * 0.14;
+        currentHeadRotZ += (targetHeadRotZ - currentHeadRotZ) * 0.14;
+      } else {
+        currentHeadRotY += (0 - currentHeadRotY) * 0.15;
+        currentHeadRotX += (0 - currentHeadRotX) * 0.15;
+        currentHeadRotZ += (0 - currentHeadRotZ) * 0.15;
+      }
+
+      maskGroup.rotation.y = rotY + currentHeadRotY;
+      maskGroup.rotation.x = rotX + currentHeadRotX;
+      maskGroup.rotation.z = currentHeadRotZ;
+
+      camera.position.z += (targetZoom - camera.position.z) * 0.12;
+
+      // 2. Animate Background Mode: Moving Grid
+      if (currentBgMode === 'grid') {
+        gridScrollY = (gridScrollY + 52 * dt) % 3200;
+        if (window.innerWidth >= 1200) {
+          elGridBg.style.backgroundPosition = `center ${gridScrollY}px`;
+        } else {
+          elGridBg.style.backgroundPosition = `0px ${gridScrollY}px`;
+        }
+      }
+
+      // 3. Animate Background Mode: Single Reel Vertical Scroll (from bottom upward)
+      if (currentBgMode === 'reel' && reelPool.length > 0) {
+        const slideH = window.innerHeight;
+        reelScrollY += (slideH * 0.42) * dt;
+
+        if (reelScrollY >= slideH) {
+          reelScrollY -= slideH;
+          const topSlide = reelPool.shift();
+          if (creators.length > 0) {
+            const c = creators[nextCreatorIdx % creators.length];
+            nextCreatorIdx++;
+            const img = topSlide.querySelector('img');
+            img.src = `/talking_head_photos_100/${c.photo}`;
+            const meta = topSlide.querySelector('.reel-meta');
+            meta.innerHTML = `
+              <span>@${c.handle}</span>
+              <span class="likes-pill">&hearts; ${(c.likes || 50000).toLocaleString()}</span>
+            `;
+          }
+          elReelStrip.appendChild(topSlide);
+          reelPool.push(topSlide);
+        }
+
+        elReelStrip.style.transform = `translate3d(0, ${-reelScrollY}px, 0)`;
+      }
+
+      renderer.render(scene, camera);
+      requestAnimationFrame(animate);
+    }
+
+    requestAnimationFrame(animate);
+  })();
+  </script>
+</body>
+</html>

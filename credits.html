@@ -1,0 +1,420 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+  <title>The Most Viral Face | Credits</title>
+  <meta name="theme-color" content="#000000">
+
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Cinzel:wght@600;800;900&family=JetBrains+Mono:wght@400;500&family=Outfit:wght@400;500;600;700&display=swap" rel="stylesheet">
+
+  <style>
+    * { box-sizing: border-box; margin: 0; padding: 0; }
+    html, body {
+      width: 100vw;
+      height: 100vh;
+      overflow: hidden;
+      background: #000000;
+      color: #ffffff;
+      font-family: 'Outfit', sans-serif;
+      user-select: none;
+    }
+
+    /* Subtle Cinematic Vignette */
+    body::after {
+      content: '';
+      position: fixed;
+      inset: 0;
+      pointer-events: none;
+      background: radial-gradient(ellipse at center, transparent 45%, rgba(0, 0, 0, 0.92) 100%);
+      z-index: 10;
+    }
+
+    /* Top-left Minimal Back Navigation */
+    .btn-back {
+      position: fixed;
+      top: 24px;
+      left: 24px;
+      z-index: 50;
+      background: rgba(20, 20, 25, 0.4);
+      backdrop-filter: blur(12px);
+      -webkit-backdrop-filter: blur(12px);
+      border: 1px solid rgba(255, 255, 255, 0.12);
+      color: rgba(255, 255, 255, 0.7);
+      text-decoration: none;
+      width: 40px;
+      height: 40px;
+      border-radius: 50%;
+      font-size: 1.1rem;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      transition: all 0.25s ease;
+      opacity: 0.6;
+    }
+
+    .btn-back:hover {
+      opacity: 1;
+      color: #fff;
+      background: rgba(30, 30, 40, 0.8);
+      border-color: rgba(255, 255, 255, 0.25);
+    }
+
+    /* Credits Rolling Viewport */
+    #credits-viewport {
+      position: absolute;
+      inset: 0;
+      width: 100vw;
+      height: 100vh;
+      overflow: hidden;
+      cursor: grab;
+    }
+
+    #credits-viewport:active {
+      cursor: grabbing;
+    }
+
+    #credits-track {
+      position: absolute;
+      left: 0;
+      right: 0;
+      top: 0;
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      will-change: transform;
+      pointer-events: auto;
+    }
+
+    .credits-block {
+      width: 100%;
+      max-width: 900px;
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      padding: 0 20px;
+    }
+
+    /* Header Title */
+    .credits-header {
+      text-align: center;
+      padding: 50vh 0 160px 0;
+    }
+
+    .credits-title {
+      font-family: 'Cinzel', serif;
+      font-size: clamp(2.6rem, 6vw, 4.6rem);
+      font-weight: 900;
+      letter-spacing: 0.2em;
+      text-transform: uppercase;
+      background: linear-gradient(180deg, #ffffff 40%, rgba(255, 255, 255, 0.45) 100%);
+      -webkit-background-clip: text;
+      -webkit-text-fill-color: transparent;
+      margin-bottom: 20px;
+    }
+
+    .credits-subtitle {
+      font-family: 'JetBrains Mono', monospace;
+      font-size: 0.88rem;
+      letter-spacing: 0.35em;
+      text-transform: uppercase;
+      color: rgba(255, 255, 255, 0.4);
+      margin-bottom: 32px;
+    }
+
+    .credits-divider {
+      width: 48px;
+      height: 1px;
+      background: rgba(255, 255, 255, 0.25);
+      margin: 0 auto;
+    }
+
+    .credits-section-label {
+      font-family: 'Cinzel', serif;
+      font-size: 1rem;
+      letter-spacing: 0.28em;
+      text-transform: uppercase;
+      color: rgba(255, 255, 255, 0.45);
+      margin: 110px 0 70px 0;
+      text-align: center;
+    }
+
+    /* One Creator Per Line - Big, Majestic Typography */
+    .creators-list {
+      width: 100%;
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      gap: 32px;
+    }
+
+    .creator-item {
+      text-decoration: none;
+      color: rgba(255, 255, 255, 0.82);
+      font-family: 'Outfit', sans-serif;
+      font-size: clamp(2.4rem, 5.5vw, 4.2rem);
+      font-weight: 600;
+      letter-spacing: -0.015em;
+      transition: all 0.25s cubic-bezier(0.2, 0.8, 0.2, 1);
+      padding: 8px 24px;
+      border-radius: 12px;
+      text-align: center;
+      line-height: 1.15;
+    }
+
+    .creator-item:hover {
+      color: #ffffff;
+      transform: scale(1.08);
+      text-shadow: 0 0 35px rgba(255, 255, 255, 0.7);
+    }
+
+    .credits-footer {
+      padding: 180px 0 45vh 0;
+      text-align: center;
+    }
+
+    .credits-footer-text {
+      font-family: 'JetBrains Mono', monospace;
+      font-size: 0.82rem;
+      letter-spacing: 0.22em;
+      color: rgba(255, 255, 255, 0.35);
+      text-transform: uppercase;
+    }
+
+    /* Floating Speed / Pause Controls Pill */
+    .speed-dock {
+      position: fixed;
+      bottom: 24px;
+      left: 50%;
+      transform: translateX(-50%);
+      z-index: 50;
+      background: rgba(12, 13, 19, 0.7);
+      backdrop-filter: blur(16px);
+      -webkit-backdrop-filter: blur(16px);
+      border: 1px solid rgba(255, 255, 255, 0.12);
+      padding: 5px 12px;
+      border-radius: 999px;
+      display: flex;
+      align-items: center;
+      gap: 12px;
+      box-shadow: 0 8px 30px rgba(0, 0, 0, 0.6);
+      font-family: 'JetBrains Mono', monospace;
+      font-size: 0.72rem;
+      color: rgba(255, 255, 255, 0.6);
+    }
+
+    .speed-btn {
+      background: transparent;
+      border: none;
+      color: rgba(255, 255, 255, 0.65);
+      font-family: inherit;
+      font-size: inherit;
+      padding: 4px 10px;
+      border-radius: 999px;
+      cursor: pointer;
+      transition: all 0.2s;
+    }
+
+    .speed-btn:hover {
+      color: #fff;
+    }
+
+    .speed-btn.active {
+      background: rgba(255, 255, 255, 0.18);
+      color: #fff;
+    }
+  </style>
+</head>
+<body>
+
+  <a href="/views" class="btn-back" title="Back to Views">&larr;</a>
+
+  <div id="credits-viewport">
+    <div id="credits-track">
+      <!-- Section 1 -->
+      <div class="credits-block" id="block-1">
+        <div class="credits-header">
+          <div class="credits-title">The Most Viral Face</div>
+          <div class="credits-subtitle">1,000 Verified Talking-Head Creators</div>
+          <div class="credits-divider"></div>
+          <div class="credits-section-label">Cast of 1,000</div>
+        </div>
+
+        <div class="creators-list" id="creators-list-1"></div>
+
+        <div class="credits-footer">
+          <div class="credits-divider" style="margin-bottom: 32px;"></div>
+          <div class="credits-footer-text">Synthesized by Generalized Procrustes Analysis</div>
+        </div>
+      </div>
+
+      <!-- Section 2 (Duplicate for Seamless Infinite Loop) -->
+      <div class="credits-block" id="block-2">
+        <div class="credits-header">
+          <div class="credits-title">The Most Viral Face</div>
+          <div class="credits-subtitle">1,000 Verified Talking-Head Creators</div>
+          <div class="credits-divider"></div>
+          <div class="credits-section-label">Cast of 1,000</div>
+        </div>
+
+        <div class="creators-list" id="creators-list-2"></div>
+
+        <div class="credits-footer">
+          <div class="credits-divider" style="margin-bottom: 32px;"></div>
+          <div class="credits-footer-text">Synthesized by Generalized Procrustes Analysis</div>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <div class="speed-dock">
+    <button class="speed-btn active" data-speed="1.0">Slow</button>
+    <button class="speed-btn" data-speed="2.0">Normal</button>
+    <button class="speed-btn" data-speed="4.0">Fast</button>
+    <button class="speed-btn" id="btn-pause">Pause</button>
+    <span style="opacity: 0.25;">|</span>
+    <a href="/credits_9x16_fast.mp4" download class="speed-btn" style="text-decoration: none; color: #38bdf8;">📥 9:16 Video</a>
+    <a href="/credits_16x9_fast.mp4" download class="speed-btn" style="text-decoration: none; color: #38bdf8;">📥 16:9 Video</a>
+  </div>
+
+  <script>
+  (function() {
+    'use strict';
+
+    const track = document.getElementById('credits-track');
+    const list1 = document.getElementById('creators-list-1');
+    const list2 = document.getElementById('creators-list-2');
+    const block1 = document.getElementById('block-1');
+    const viewport = document.getElementById('credits-viewport');
+    const speedBtns = document.querySelectorAll('.speed-btn[data-speed]');
+    const btnPause = document.getElementById('btn-pause');
+
+    let scrollY = 0;
+    // Slow, cinematic roll speed
+    let baseSpeed = 24; // pixels per second (calm & slow)
+    let speedMult = 1.0;
+    let isPaused = false;
+    let isDragging = false;
+    let dragStartY = 0;
+    let lastDragY = 0;
+    let singleBlockH = 0;
+
+    async function loadCreators() {
+      try {
+        const res = await fetch('/assets/creators.json');
+        const creators = await res.json();
+        renderCreators(creators);
+      } catch (e) {
+        console.error('Error loading creators', e);
+      }
+    }
+
+    function renderCreators(creators) {
+      const fragment1 = document.createDocumentFragment();
+      const fragment2 = document.createDocumentFragment();
+
+      creators.forEach((c) => {
+        const createEl = () => {
+          const a = document.createElement('a');
+          a.className = 'creator-item';
+          a.href = c.reelUrl || `https://www.instagram.com/reel/${c.video_id}/`;
+          a.target = '_blank';
+          a.rel = 'noopener noreferrer';
+          // One creator per line, big, no numbers next to it
+          a.textContent = `@${c.handle}`;
+          return a;
+        };
+
+        fragment1.appendChild(createEl());
+        fragment2.appendChild(createEl());
+      });
+
+      list1.appendChild(fragment1);
+      list2.appendChild(fragment2);
+
+      requestAnimationFrame(() => {
+        singleBlockH = block1.offsetHeight;
+      });
+    }
+
+    loadCreators();
+
+    speedBtns.forEach(b => {
+      b.addEventListener('click', () => {
+        speedBtns.forEach(btn => btn.classList.remove('active'));
+        b.classList.add('active');
+        speedMult = parseFloat(b.dataset.speed);
+        isPaused = false;
+        btnPause.classList.remove('active');
+      });
+    });
+
+    btnPause.addEventListener('click', () => {
+      isPaused = !isPaused;
+      btnPause.classList.toggle('active', isPaused);
+      if (!isPaused) {
+        speedBtns.forEach(b => {
+          if (parseFloat(b.dataset.speed) === speedMult) b.classList.add('active');
+        });
+      }
+    });
+
+    // Drag / Touch scrub
+    viewport.addEventListener('pointerdown', (e) => {
+      isDragging = true;
+      dragStartY = e.clientY;
+      lastDragY = e.clientY;
+    });
+
+    window.addEventListener('pointermove', (e) => {
+      if (!isDragging) return;
+      const dy = e.clientY - lastDragY;
+      lastDragY = e.clientY;
+      scrollY -= dy;
+      if (singleBlockH > 0) {
+        if (scrollY < 0) scrollY += singleBlockH;
+        if (scrollY >= singleBlockH) scrollY -= singleBlockH;
+      }
+    });
+
+    window.addEventListener('pointerup', () => {
+      isDragging = false;
+    });
+
+    // Mouse wheel scrub
+    window.addEventListener('wheel', (e) => {
+      scrollY += e.deltaY * 0.8;
+      if (singleBlockH > 0) {
+        if (scrollY < 0) scrollY += singleBlockH;
+        if (scrollY >= singleBlockH) scrollY -= singleBlockH;
+      }
+    }, { passive: true });
+
+    // Animation Loop
+    let lastTime = performance.now();
+    function animate(now) {
+      const dt = Math.min((now - lastTime) / 1000, 0.1);
+      lastTime = now;
+
+      if (!isPaused && !isDragging) {
+        scrollY += baseSpeed * speedMult * dt;
+        if (singleBlockH > 0 && scrollY >= singleBlockH) {
+          scrollY -= singleBlockH;
+        }
+      }
+
+      track.style.transform = `translate3d(0, ${-scrollY}px, 0)`;
+      requestAnimationFrame(animate);
+    }
+    requestAnimationFrame(animate);
+
+    window.addEventListener('resize', () => {
+      if (block1) singleBlockH = block1.offsetHeight;
+    });
+
+  })();
+  </script>
+</body>
+</html>

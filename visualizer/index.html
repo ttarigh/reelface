@@ -1,0 +1,780 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+  <title>The Most Viral Face | 1,000-to-1 Visualizer</title>
+  <meta name="theme-color" content="#050507">
+
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=JetBrains+Mono:wght@400;500;700&family=Outfit:wght@400;500;600;700&display=swap" rel="stylesheet">
+
+  <style>
+    * { box-sizing: border-box; margin: 0; padding: 0; }
+    html, body {
+      width: 100vw;
+      height: 100vh;
+      overflow: hidden;
+      background: #050507;
+      color: #ffffff;
+      font-family: 'Outfit', -apple-system, sans-serif;
+      user-select: none;
+    }
+
+    #viz-canvas {
+      position: absolute;
+      inset: 0;
+      width: 100vw;
+      height: 100vh;
+      display: block;
+      z-index: 1;
+    }
+
+    /* Subtle HUD Counter (Top Right) */
+    .hud-counter {
+      position: fixed;
+      top: 28px;
+      right: 32px;
+      z-index: 20;
+      text-align: right;
+      pointer-events: none;
+      transition: opacity 0.35s ease;
+    }
+
+    body.ui-hidden .hud-counter,
+    body.ui-hidden .ui-dock,
+    body.ui-hidden .scrubber-bar,
+    body.ui-hidden .hint-top {
+      opacity: 0 !important;
+      pointer-events: none !important;
+    }
+
+    .hud-num {
+      font-family: 'JetBrains Mono', monospace;
+      font-size: clamp(1.6rem, 3vw, 2.4rem);
+      font-weight: 700;
+      letter-spacing: -0.03em;
+      color: #ffffff;
+      text-shadow: 0 4px 24px rgba(0, 0, 0, 0.8);
+    }
+
+    .hud-label {
+      font-family: 'JetBrains Mono', monospace;
+      font-size: 0.72rem;
+      text-transform: uppercase;
+      letter-spacing: 0.16em;
+      color: rgba(255, 255, 255, 0.5);
+      margin-top: 2px;
+    }
+
+    /* Top Center Subtle Hint */
+    .hint-top {
+      position: fixed;
+      top: 24px;
+      left: 50%;
+      transform: translateX(-50%);
+      z-index: 20;
+      font-family: 'JetBrains Mono', monospace;
+      font-size: 0.72rem;
+      letter-spacing: 0.06em;
+      text-transform: uppercase;
+      color: rgba(255, 255, 255, 0.4);
+      pointer-events: none;
+      transition: opacity 0.35s ease;
+    }
+
+    /* Timeline Scrubber Bar (above dock) */
+    .scrubber-bar {
+      position: fixed;
+      bottom: 82px;
+      left: 50%;
+      transform: translateX(-50%);
+      z-index: 30;
+      width: min(560px, 88vw);
+      background: rgba(12, 14, 20, 0.72);
+      backdrop-filter: blur(16px);
+      -webkit-backdrop-filter: blur(16px);
+      border: 1px solid rgba(255, 255, 255, 0.12);
+      border-radius: 999px;
+      padding: 8px 18px;
+      display: flex;
+      align-items: center;
+      gap: 14px;
+      transition: opacity 0.35s ease;
+    }
+
+    .scrubber-phase {
+      font-family: 'JetBrains Mono', monospace;
+      font-size: 0.7rem;
+      color: #38bdf8;
+      width: 155px;
+      white-space: nowrap;
+      overflow: hidden;
+      text-overflow: ellipsis;
+    }
+
+    #timeline-slider {
+      flex: 1;
+      -webkit-appearance: none;
+      height: 4px;
+      border-radius: 4px;
+      background: rgba(255, 255, 255, 0.2);
+      outline: none;
+      cursor: pointer;
+    }
+
+    #timeline-slider::-webkit-slider-thumb {
+      -webkit-appearance: none;
+      width: 14px;
+      height: 14px;
+      border-radius: 50%;
+      background: #ffffff;
+      box-shadow: 0 0 10px rgba(56, 189, 248, 0.9);
+      cursor: pointer;
+    }
+
+    /* Bottom Mode Switcher Dock */
+    .ui-dock {
+      position: fixed;
+      bottom: 22px;
+      left: 50%;
+      transform: translateX(-50%);
+      z-index: 30;
+      background: rgba(12, 13, 19, 0.78);
+      backdrop-filter: blur(20px);
+      -webkit-backdrop-filter: blur(20px);
+      border: 1px solid rgba(255, 255, 255, 0.14);
+      padding: 6px;
+      border-radius: 999px;
+      display: flex;
+      align-items: center;
+      gap: 4px;
+      box-shadow: 0 12px 36px rgba(0, 0, 0, 0.55);
+      max-width: 96vw;
+      overflow-x: auto;
+      transition: opacity 0.35s ease;
+    }
+
+    .mode-btn {
+      background: transparent;
+      border: none;
+      color: rgba(255, 255, 255, 0.65);
+      font-family: 'Outfit', sans-serif;
+      font-size: 0.8rem;
+      font-weight: 600;
+      padding: 8px 14px;
+      border-radius: 999px;
+      cursor: pointer;
+      transition: all 0.2s ease;
+      white-space: nowrap;
+    }
+
+    .mode-btn:hover {
+      color: #ffffff;
+    }
+
+    .mode-btn.active {
+      background: #ffffff;
+      color: #050507;
+      box-shadow: 0 2px 10px rgba(0, 0, 0, 0.25);
+    }
+
+    .dock-divider {
+      width: 1px;
+      height: 18px;
+      background: rgba(255, 255, 255, 0.15);
+      margin: 0 4px;
+      flex-shrink: 0;
+    }
+  </style>
+</head>
+<body>
+
+  <canvas id="viz-canvas"></canvas>
+
+  <div class="hint-top">Press [Space] to Replay &bull; Press [H] to Hide UI for Clean Recording</div>
+
+  <div class="hud-counter">
+    <div class="hud-num" id="hud-num">0001 / 1000</div>
+    <div class="hud-label" id="hud-label">Rapid HD Flash</div>
+  </div>
+
+  <!-- Interactive Timeline Scrubber -->
+  <div class="scrubber-bar">
+    <span class="scrubber-phase" id="phase-text">1. Rapid HD Cut</span>
+    <input type="range" id="timeline-slider" min="0" max="1000" value="0">
+  </div>
+
+  <!-- 4 Visualization Alternatives + Controls (Alt 3 active by default) -->
+  <div class="ui-dock">
+    <button class="mode-btn" data-alt="1">Alt 1: Scroll &rarr; Zoom &rarr; Converge</button>
+    <button class="mode-btn" data-alt="2">Alt 2: 3D Vortex Stack</button>
+    <button class="mode-btn active" data-alt="3">Alt 3: Rapid HD Flash</button>
+    <button class="mode-btn" data-alt="4">Alt 4: Spiral Wave Morph</button>
+    <div class="dock-divider"></div>
+    <button class="mode-btn" id="btn-replay">↻ Replay</button>
+    <button class="mode-btn" id="btn-speed">Speed: Fast (5.5s)</button>
+    <button class="mode-btn" id="btn-face-style">End: Full Portrait</button>
+    <button class="mode-btn" id="btn-hide-ui">Hide UI</button>
+  </div>
+
+  <script>
+  (function() {
+    'use strict';
+
+    const canvas = document.getElementById('viz-canvas');
+    const ctx = canvas.getContext('2d');
+    const hudNum = document.getElementById('hud-num');
+    const hudLabel = document.getElementById('hud-label');
+    const phaseText = document.getElementById('phase-text');
+    const slider = document.getElementById('timeline-slider');
+    const altBtns = document.querySelectorAll('.mode-btn[data-alt]');
+    const btnReplay = document.getElementById('btn-replay');
+    const btnSpeed = document.getElementById('btn-speed');
+    const btnFaceStyle = document.getElementById('btn-face-style');
+    const btnHideUi = document.getElementById('btn-hide-ui');
+
+    let cw = window.innerWidth;
+    let ch = window.innerHeight;
+    let dpr = Math.min(window.devicePixelRatio || 1, 2);
+
+    function resize() {
+      cw = window.innerWidth;
+      ch = window.innerHeight;
+      canvas.width = cw * dpr;
+      canvas.height = ch * dpr;
+      ctx.setTransform(dpr, 0, 0, dpr, 0, 0);
+      ctx.imageSmoothingEnabled = true;
+      ctx.imageSmoothingQuality = 'high';
+    }
+    window.addEventListener('resize', resize);
+    resize();
+
+    // ==========================================================================
+    // LOAD ASSETS:
+    // 1. 120 Razor-Sharp 640x800 Eye-Aligned HD Portraits (/assets/aligned_hd/)
+    // 2. 5760x6000 HD 12x10 Atlas (/assets/aligned_hd_atlas.jpg) for instant fallback
+    // 3. 1,000-Face Full Wall Grid (/assets/grid_1000.jpg) for 1,000-tile views
+    // 4. Final Average Face (/1000face.png & /assets/mask_1000_cutout.png)
+    // ==========================================================================
+    const NUM_HD_FACES = 120;
+    const hdFaces = [];
+    for (let i = 0; i < NUM_HD_FACES; i++) {
+      const im = new Image();
+      im.src = `/assets/aligned_hd/face_${String(i).padStart(3, '0')}.jpg`;
+      hdFaces.push(im);
+    }
+
+    const hdAtlasImg = new Image();
+    hdAtlasImg.src = '/assets/aligned_hd_atlas.jpg';
+    const HD_ATLAS_COLS = 12;
+    const HD_ATLAS_CELL_W = 480;
+    const HD_ATLAS_CELL_H = 600;
+
+    // Optional metadata (ranks & handles) for the 120 HD faces
+    let hdMeta = [];
+    fetch('/assets/aligned_hd/index.json')
+      .then(r => r.json())
+      .then(data => { hdMeta = data; })
+      .catch(() => {});
+
+    const gridImg = new Image();
+    gridImg.src = '/assets/grid_1000.jpg';
+
+    const cutoutImg = new Image();
+    cutoutImg.src = '/assets/mask_1000_cutout.png?v=20';
+
+    const fullFaceImg = new Image();
+    fullFaceImg.src = '/1000face.png';
+
+    // Precompute 1,000 tile descriptors from the 25x40 grid_1000.jpg (2000x4000, each cell 80x100)
+    const COLS = 25;
+    const ROWS = 40;
+    const CELL_W = 80;
+    const CELL_H = 100;
+    const tiles = [];
+
+    for (let i = 0; i < 1000; i++) {
+      const col = i % COLS;
+      const row = Math.floor(i / COLS);
+      const normX = (col - (COLS - 1) / 2) / COLS;
+      const normY = (row - (ROWS - 1) / 2) / ROWS;
+      const distFromCenter = Math.hypot(normX, normY);
+      const angle = Math.atan2(normY, normX) + (i * 0.13);
+
+      tiles.push({
+        index: i,
+        col,
+        row,
+        sx: col * CELL_W,
+        sy: row * CELL_H,
+        normX,
+        normY,
+        dist: distFromCenter,
+        angle,
+        zSeed: (i / 1000),
+        spiralRadius: 0.15 + 0.85 * Math.sqrt(i / 1000),
+        spiralTheta: i * 2.399963229728653
+      });
+    }
+
+    // Helper: draw one of the 120 HD aligned portraits at (x, y, w, h)
+    function drawHdFace(hdIdx, x, y, w, h, alpha = 1.0) {
+      const idx = ((hdIdx % NUM_HD_FACES) + NUM_HD_FACES) % NUM_HD_FACES;
+      const im = hdFaces[idx];
+      ctx.save();
+      ctx.globalAlpha = clamp01(alpha);
+      if (im && im.complete && im.naturalWidth > 0) {
+        ctx.drawImage(im, x, y, w, h);
+      } else if (hdAtlasImg.complete && hdAtlasImg.naturalWidth > 0) {
+        const c = idx % HD_ATLAS_COLS;
+        const r = Math.floor(idx / HD_ATLAS_COLS);
+        ctx.drawImage(
+          hdAtlasImg,
+          c * HD_ATLAS_CELL_W, r * HD_ATLAS_CELL_H, HD_ATLAS_CELL_W, HD_ATLAS_CELL_H,
+          x, y, w, h
+        );
+      } else if (gridImg.complete && gridImg.naturalWidth > 0) {
+        const t = tiles[(idx * 8) % 1000];
+        ctx.drawImage(gridImg, t.sx, t.sy, CELL_W, CELL_H, x, y, w, h);
+      }
+      ctx.restore();
+    }
+
+    // ==========================================================================
+    // STATE & TIMELINE CONTROL
+    // ==========================================================================
+    let currentAlt = 3; // Default to Alt 3 as requested
+    // 0 = Full Portrait (1000face.png), 1 = Cutout Mask (mask_1000_cutout.png)
+    let useCutout = false;
+    let progress = 0; // 0.0 to 1.0
+    let isScrubbing = false;
+    let isPlaying = true;
+
+    const SPEED_PRESETS = [
+      { label: 'Speed: Fast (5.5s)', mult: 1.0, alt3Dur: 5.5 },
+      { label: 'Speed: Turbo (3.8s)', mult: 1.45, alt3Dur: 3.8 },
+      { label: 'Speed: Medium (8.0s)', mult: 0.7, alt3Dur: 8.0 }
+    ];
+    let speedIdx = 0;
+
+    const BASE_DURATION_BY_ALT = {
+      1: 10.5, // Scroll -> Zoom Out -> Converge into 1 Face
+      2: 10.0, // 3D Vortex Tunnel -> Stack into 1 Face
+      3: 5.5,  // Rapid HD Flash -> Final Average Face
+      4: 10.5  // Golden Spiral Wave -> Morph into 1 Face
+    };
+
+    function getDuration() {
+      if (currentAlt === 3) return SPEED_PRESETS[speedIdx].alt3Dur;
+      return BASE_DURATION_BY_ALT[currentAlt] / SPEED_PRESETS[speedIdx].mult;
+    }
+
+    function getFinalFaceImage() {
+      return useCutout ? cutoutImg : fullFaceImg;
+    }
+
+    // Easing utilities
+    function clamp01(t) { return Math.max(0, Math.min(1, t)); }
+    function remap(t, a, b) { return clamp01((t - a) / (b - a)); }
+    function easeInOutCubic(t) {
+      return t < 0.5 ? 4 * t * t * t : 1 - Math.pow(-2 * t + 2, 3) / 2;
+    }
+    function easeOutQuart(t) {
+      return 1 - Math.pow(1 - t, 4);
+    }
+    function easeInOutQuint(t) {
+      return t < 0.5 ? 16 * t * t * t * t * t : 1 - Math.pow(-2 * t + 2, 5) / 2;
+    }
+
+    // UI Controls
+    altBtns.forEach(btn => {
+      btn.addEventListener('click', () => {
+        altBtns.forEach(b => b.classList.remove('active'));
+        btn.classList.add('active');
+        currentAlt = parseInt(btn.dataset.alt, 10);
+        progress = 0;
+        isPlaying = true;
+      });
+    });
+
+    btnReplay.addEventListener('click', () => {
+      progress = 0;
+      isPlaying = true;
+    });
+
+    btnSpeed.addEventListener('click', () => {
+      speedIdx = (speedIdx + 1) % SPEED_PRESETS.length;
+      btnSpeed.textContent = SPEED_PRESETS[speedIdx].label;
+      progress = 0;
+      isPlaying = true;
+    });
+
+    btnFaceStyle.addEventListener('click', () => {
+      useCutout = !useCutout;
+      btnFaceStyle.textContent = `End: ${useCutout ? 'Cutout Mask' : 'Full Portrait'}`;
+    });
+
+    btnHideUi.addEventListener('click', () => {
+      document.body.classList.toggle('ui-hidden');
+    });
+
+    window.addEventListener('keydown', (e) => {
+      if (e.code === 'Space') {
+        e.preventDefault();
+        progress = 0;
+        isPlaying = true;
+      } else if (e.key === 'h' || e.key === 'H') {
+        document.body.classList.toggle('ui-hidden');
+      }
+    });
+
+    slider.addEventListener('input', (e) => {
+      isScrubbing = true;
+      progress = parseInt(e.target.value, 10) / 1000;
+    });
+
+    slider.addEventListener('change', () => {
+      isScrubbing = false;
+    });
+
+    // Helper: draw the final synthesized face centered at (cx, cy) with height `targetH`
+    function drawFinalFace(cx, cy, targetH, alpha, cutMaskOnly = false) {
+      const img = cutMaskOnly ? cutoutImg : getFinalFaceImage();
+      if (!img.complete || !img.naturalWidth) return;
+      const targetW = targetH * 0.8;
+      ctx.save();
+      ctx.globalAlpha = clamp01(alpha);
+      ctx.drawImage(img, cx - targetW / 2, cy - targetH / 2, targetW, targetH);
+      ctx.restore();
+    }
+
+    // ==========================================================================
+    // ALTERNATIVE 3: RAPID HIGH-RES FLASH -> END WITH FINAL AVERAGE FACE
+    // (No intermediate live running average; 100% crisp HD aligned faces)
+    // ==========================================================================
+    // Prebuild a deterministic cut schedule across `p` in [0, 0.80]
+    // Starts with punchy readable cuts (~7 cuts/sec) and accelerates smoothly
+    // up to 60fps strobe cuts right before locking into the final average face.
+    const FLASH_END_P = 0.80;
+    const cutSchedule = [];
+    (function buildCutSchedule() {
+      let pCursor = 0.0;
+      let stepIdx = 0;
+      while (pCursor < FLASH_END_P) {
+        const norm = pCursor / FLASH_END_P; // 0 -> 1
+        // Step size in normalized progress `p`:
+        // At norm = 0: dp = 0.022 (~0.12s per face at 5.5s duration -> ~8 faces/sec, immediate energetic cuts)
+        // At norm = 1: dp = 0.0028 (~1 frame at 60fps -> blistering 60fps montage)
+        const dp = 0.0028 + 0.0192 * Math.pow(1.0 - norm, 2.1);
+        const nextP = Math.min(FLASH_END_P, pCursor + dp);
+        const displayRank = Math.min(1000, Math.max(1, Math.round(1 + (nextP / FLASH_END_P) * 999)));
+        cutSchedule.push({
+          pStart: pCursor,
+          pEnd: nextP,
+          hdIndex: stepIdx % NUM_HD_FACES,
+          rank: displayRank
+        });
+        pCursor = nextP;
+        stepIdx++;
+      }
+    })();
+
+    function renderAlt3(p, now) {
+      const cx = cw / 2;
+      const cy = ch / 2;
+      const finalH = Math.min(ch * 0.86, cw * 0.92);
+      const finalW = finalH * 0.8;
+
+      if (p < FLASH_END_P) {
+        // Find active cut slot
+        let activeSlot = cutSchedule[cutSchedule.length - 1];
+        for (let i = 0; i < cutSchedule.length; i++) {
+          if (p >= cutSchedule[i].pStart && p <= cutSchedule[i].pEnd) {
+            activeSlot = cutSchedule[i];
+            break;
+          }
+        }
+
+        // Draw 100% opaque, full-resolution (640x800) eye-aligned portrait—NO live average blur!
+        drawHdFace(
+          activeSlot.hdIndex,
+          cx - finalW / 2,
+          cy - finalH / 2,
+          finalW,
+          finalH,
+          1.0
+        );
+
+        const meta = hdMeta[activeSlot.hdIndex];
+        const rankStr = String(activeSlot.rank).padStart(4, '0');
+        hudNum.textContent = `${rankStr} / 1000`;
+        hudLabel.textContent = meta && meta.handle ? `@${meta.handle}` : 'Aligned Creator Feed';
+        phaseText.textContent = `1. Rapid HD Cut (#${rankStr})`;
+      } else {
+        // 0.80 -> 0.87: Quick, crisp resolve from final HD flash frame into the Final Average Face
+        const resolveT = easeInOutCubic(remap(p, FLASH_END_P, 0.87));
+
+        if (resolveT < 0.99) {
+          const lastSlot = cutSchedule[cutSchedule.length - 1];
+          drawHdFace(
+            lastSlot.hdIndex,
+            cx - finalW / 2,
+            cy - finalH / 2,
+            finalW,
+            finalH,
+            1.0 - resolveT
+          );
+        }
+
+        // Draw the final average face (1000face.png or Cutout)
+        drawFinalFace(cx, cy, finalH, resolveT);
+
+        hudNum.textContent = '1000 / 1000';
+        hudLabel.textContent = 'The Most Viral Face';
+        phaseText.textContent = '2. The Average Face';
+      }
+    }
+
+    // ==========================================================================
+    // ALTERNATIVE 1: SCROLL -> ZOOM OUT TO 1,000 GRID -> CONVERGE INTO ONE FACE
+    // ==========================================================================
+    function renderAlt1(p, now) {
+      const zoomT = easeInOutCubic(remap(p, 0.22, 0.60));
+      const convergeT = easeInOutQuint(remap(p, 0.58, 0.88));
+      const finalBlendT = easeInOutCubic(remap(p, 0.76, 0.93));
+
+      if (p < 0.28) {
+        const count = Math.max(1, Math.floor(remap(p, 0, 0.28) * 60));
+        hudNum.textContent = `${String(count).padStart(4, '0')} / 1000`;
+        hudLabel.textContent = 'Scrolling Creator Feed';
+        phaseText.textContent = '1. Vertical Scroll';
+      } else if (p < 0.60) {
+        const count = Math.floor(60 + remap(p, 0.28, 0.60) * 940);
+        hudNum.textContent = `${String(count).padStart(4, '0')} / 1000`;
+        hudLabel.textContent = 'Zooming Out to 1,000 Faces';
+        phaseText.textContent = '2. Zoom Out (1,000)';
+      } else if (p < 0.88) {
+        hudNum.textContent = `1000 → 0001`;
+        hudLabel.textContent = 'Procrustean Convergence';
+        phaseText.textContent = '3. Blending 1,000 Faces';
+      } else {
+        hudNum.textContent = `THE ONE FACE`;
+        hudLabel.textContent = '1,000 Creators Synthesized';
+        phaseText.textContent = '4. The Most Viral Face';
+      }
+
+      const cx = cw / 2;
+      const cy = ch / 2;
+
+      const finalH = Math.min(ch * 0.86, cw * 0.92);
+      const finalW = finalH * 0.8;
+
+      const closeTileH = ch * 0.80;
+      const wallTileW = Math.max(cw / 25, ch / 22);
+      const wallTileH = wallTileW * 1.25;
+
+      const gridTileH = closeTileH * Math.pow(wallTileH / closeTileH, zoomT);
+      const gridTileW = gridTileH * 0.8;
+
+      const scrollSpeedFactor = 1.0 - convergeT;
+      const verticalScrollPx = (p * 4200) * scrollSpeedFactor;
+
+      if (finalBlendT < 0.99 && gridImg.complete && gridImg.naturalWidth > 0) {
+        for (let i = 0; i < 1000; i++) {
+          const t = tiles[i];
+          const colOffset = t.col - 12;
+
+          if (convergeT === 0) {
+            const maxVisibleCols = Math.ceil((cw / gridTileW) / 2) + 1;
+            if (Math.abs(colOffset) > maxVisibleCols) continue;
+          }
+
+          const stagger = (1.0 - t.dist) * 0.18;
+          const localConverge = easeInOutCubic(clamp01((convergeT * 1.18) - stagger));
+
+          const totalGridH = ROWS * gridTileH;
+          let rawY = ((t.row - 20) * gridTileH - verticalScrollPx) % totalGridH;
+          if (rawY < -totalGridH / 2) rawY += totalGridH;
+          if (rawY > totalGridH / 2) rawY -= totalGridH;
+
+          const gridX = cx + colOffset * gridTileW;
+          const gridY = cy + rawY;
+
+          if (localConverge === 0) {
+            if (gridY < -gridTileH || gridY > ch + gridTileH) continue;
+          }
+
+          const curX = gridX + (cx - gridX) * localConverge;
+          const curY = gridY + (cy - gridY) * localConverge;
+          const curW = gridTileW + (finalW - gridTileW) * localConverge;
+          const curH = gridTileH + (finalH - gridTileH) * localConverge;
+
+          if (localConverge > 0.65 && (i % 12 !== 0)) continue;
+
+          const baseAlpha = 1.0 - finalBlendT * 0.95;
+          const stackAlpha = localConverge > 0
+            ? Math.max(0.06, (1.0 - localConverge * 0.86) * baseAlpha)
+            : 1.0;
+
+          // Use HD faces when tiles are large on screen (close-up scroll)
+          if (curW > 140 && localConverge < 0.3) {
+            drawHdFace(i % NUM_HD_FACES, curX - curW / 2, curY - curH / 2, curW, curH, stackAlpha);
+          } else {
+            ctx.globalAlpha = stackAlpha;
+            ctx.drawImage(
+              gridImg,
+              t.sx, t.sy, CELL_W, CELL_H,
+              curX - curW / 2, curY - curH / 2, curW, curH
+            );
+          }
+        }
+      }
+
+      if (finalBlendT > 0.01) {
+        drawFinalFace(cx, cy, finalH, finalBlendT);
+      }
+    }
+
+    // ==========================================================================
+    // ALTERNATIVE 2: 3D VORTEX TUNNEL -> ORBITAL STACK -> ONE FACE
+    // ==========================================================================
+    function renderAlt2(p, now) {
+      const cx = cw / 2;
+      const cy = ch / 2;
+      const finalH = Math.min(ch * 0.86, cw * 0.92);
+      const finalW = finalH * 0.8;
+
+      const stackT = easeInOutQuint(remap(p, 0.35, 0.82));
+      const finalT = easeInOutCubic(remap(p, 0.74, 0.92));
+
+      const activeCount = Math.min(1000, Math.max(1, Math.floor(remap(p, 0, 0.75) * 1000)));
+      hudNum.textContent = p > 0.85 ? 'THE ONE FACE' : `${String(activeCount).padStart(4, '0')} / 1000`;
+      hudLabel.textContent = p < 0.4 ? '3D Cloud of 1,000 Creators' : (p < 0.85 ? 'Aligning Optical Axis' : '1,000 Creators Synthesized');
+      phaseText.textContent = p < 0.4 ? '1. 3D Face Cloud' : (p < 0.85 ? '2. Optical Stack' : '3. Synthesized Face');
+
+      if (finalT < 0.99) {
+        const step = 8;
+        for (let i = 0; i < 1000; i += step) {
+          const t = tiles[i];
+          const rawZ = ((t.zSeed - p * 1.8) % 1.0 + 1.0) % 1.0;
+          const zDepth = rawZ + (0.65 - rawZ) * stackT;
+
+          const perspective = 0.15 + Math.pow(zDepth, 2.2) * 1.6;
+          const orbitAngle = t.spiralTheta + (1.0 - stackT) * (p * 3.2);
+          const radius = t.spiralRadius * Math.max(cw, ch) * 0.65 * (1.0 - stackT);
+
+          const x3d = cx + Math.cos(orbitAngle) * radius * perspective;
+          const y3d = cy + Math.sin(orbitAngle) * radius * perspective;
+
+          const w = (finalW * 0.28 * perspective) * (1.0 - stackT) + finalW * stackT;
+          const h = (finalH * 0.28 * perspective) * (1.0 - stackT) + finalH * stackT;
+
+          const alpha = Math.sin(rawZ * Math.PI) * (1.0 - stackT * 0.85) * (1.0 - finalT);
+          if (alpha < 0.01) continue;
+
+          drawHdFace((i / step) % NUM_HD_FACES, x3d - w / 2, y3d - h / 2, w, h, alpha);
+        }
+      }
+
+      if (finalT > 0.01) {
+        drawFinalFace(cx, cy, finalH, finalT);
+      }
+    }
+
+    // ==========================================================================
+    // ALTERNATIVE 4: GOLDEN SPIRAL MOSAIC WAVE -> ONE FACE
+    // ==========================================================================
+    function renderAlt4(p, now) {
+      const cx = cw / 2;
+      const cy = ch / 2;
+      const finalH = Math.min(ch * 0.86, cw * 0.92);
+      const finalW = finalH * 0.8;
+
+      const expandT = easeOutQuart(remap(p, 0.0, 0.35));
+      const implodeT = easeInOutQuint(remap(p, 0.42, 0.85));
+      const finalT = easeInOutCubic(remap(p, 0.76, 0.94));
+
+      hudNum.textContent = p > 0.86 ? 'THE ONE FACE' : `${String(Math.floor(expandT * 1000)).padStart(4, '0')} / 1000`;
+      hudLabel.textContent = p < 0.42 ? '1,000-Face Phyllotaxis Spiral' : 'Harmonic Implosion';
+      phaseText.textContent = p < 0.42 ? '1. 1,000-Face Spiral' : (p < 0.86 ? '2. Harmonic Merge' : '3. Synthesized Face');
+
+      if (finalT < 0.99 && gridImg.complete && gridImg.naturalWidth > 0) {
+        const maxRadius = Math.min(cw, ch) * 0.46;
+        for (let i = 0; i < 1000; i++) {
+          const t = tiles[i];
+          if (i / 1000 > expandT) continue;
+
+          const waveDelay = (1.0 - t.spiralRadius) * 0.22;
+          const localMerge = easeInOutCubic(clamp01(implodeT * 1.22 - waveDelay));
+
+          const r = t.spiralRadius * maxRadius * (1.0 - localMerge);
+          const theta = t.spiralTheta + p * 1.4 * (1.0 - localMerge);
+
+          const x = cx + Math.cos(theta) * r;
+          const y = cy + Math.sin(theta) * r;
+
+          const tileW = 22 + (finalW - 22) * Math.pow(localMerge, 2.5);
+          const tileH = tileW * 1.25;
+
+          if (localMerge > 0.65 && (i % 14 !== 0)) continue;
+
+          const alpha = localMerge > 0
+            ? Math.max(0.06, (1.0 - localMerge * 0.88) * (1.0 - finalT))
+            : 0.92;
+
+          if (tileW > 120) {
+            drawHdFace(i % NUM_HD_FACES, x - tileW / 2, y - tileH / 2, tileW, tileH, alpha);
+          } else {
+            ctx.globalAlpha = clamp01(alpha);
+            ctx.drawImage(
+              gridImg,
+              t.sx, t.sy, CELL_W, CELL_H,
+              x - tileW / 2, y - tileH / 2, tileW, tileH
+            );
+          }
+        }
+      }
+
+      if (finalT > 0.01) {
+        drawFinalFace(cx, cy, finalH, finalT);
+      }
+    }
+
+    // ==========================================================================
+    // MASTER RENDER LOOP
+    // ==========================================================================
+    let lastTime = performance.now();
+
+    function animate(now) {
+      const dt = Math.min((now - lastTime) / 1000, 0.1);
+      lastTime = now;
+
+      if (isPlaying && !isScrubbing) {
+        const duration = getDuration();
+        progress += dt / duration;
+        if (progress >= 1.0) {
+          progress = 1.0;
+        }
+        slider.value = Math.round(progress * 1000);
+      }
+
+      ctx.save();
+      ctx.fillStyle = '#050507';
+      ctx.fillRect(0, 0, cw, ch);
+
+      if (currentAlt === 1) renderAlt1(progress, now);
+      else if (currentAlt === 2) renderAlt2(progress, now);
+      else if (currentAlt === 3) renderAlt3(progress, now);
+      else renderAlt4(progress, now);
+
+      ctx.restore();
+      requestAnimationFrame(animate);
+    }
+
+    requestAnimationFrame(animate);
+  })();
+  </script>
+</body>
+</html>

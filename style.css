@@ -95,7 +95,7 @@ html, body {
 
 .mask-wrapper {
   position: relative;
-  width: min(440px, 82vw);
+  width: min(720px, 94vw);
   aspect-ratio: 860 / 916;
   transform-style: preserve-3d;
   will-change: transform;
