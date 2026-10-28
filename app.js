@@ -187,7 +187,7 @@
   }
 
   function handleBackgroundFaceHover(e) {
-    if (e.target.closest('#mask-wrapper')) {
+    if (e.target.closest('#mask-wrapper') || e.target.closest('#print-mask-btn')) {
       elTooltip.style.opacity = '0';
       elHighlightBox.style.opacity = '0';
       return;
@@ -216,7 +216,7 @@
 
   // Clicking on any creator face opens the Reel directly (not the creator's page)
   elGridViewport.addEventListener('click', (e) => {
-    if (e.target.closest('#mask-wrapper')) return;
+    if (e.target.closest('#mask-wrapper') || e.target.closest('#print-mask-btn')) return;
 
     const data = getCreatorFromEvent(e);
     if (data && data.creator) {
@@ -226,6 +226,21 @@
       }
     }
   });
+
+  // Top-right Print Mask button: ensures high-DPI print image is ready, then opens native print dialog
+  const elPrintBtn = document.getElementById('print-mask-btn');
+  const elPrintImg = document.getElementById('print-mask-img');
+  if (elPrintBtn) {
+    elPrintBtn.addEventListener('click', async (e) => {
+      e.stopPropagation();
+      if (elPrintImg && !elPrintImg.complete && elPrintImg.decode) {
+        try {
+          await elPrintImg.decode();
+        } catch (_) {}
+      }
+      window.print();
+    });
+  }
 
   // Spacebar to pause/resume vertical drift
   window.addEventListener('keydown', (e) => {
