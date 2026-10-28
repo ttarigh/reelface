@@ -67,18 +67,6 @@ html, body {
   }
 }
 
-/* Interactive Hover Box for individual creators */
-#face-highlight-box {
-  position: absolute;
-  pointer-events: none;
-  border: 2px solid var(--accent-cyan);
-  box-shadow: 0 0 16px rgba(56, 189, 248, 0.85), inset 0 0 8px rgba(56, 189, 248, 0.5);
-  border-radius: 4px;
-  transition: opacity 0.12s ease, transform 0.06s ease;
-  opacity: 0;
-  z-index: 4;
-}
-
 /* ==========================================================================
    2. 3D FLOATING MASK CENTERPIECE (FULL-FACE, SOFT SHADOW, NO BOUNCE)
    ========================================================================== */
@@ -129,43 +117,39 @@ html, body {
 }
 
 /* ==========================================================================
-   3. CLEAN HOVER TOOLTIP FOR WATCHING REELS
+   3. HOVER LABELS (#FFFF00 & BLACK TEXT)
    ========================================================================== */
 .creator-tooltip {
   position: absolute;
   pointer-events: none;
-  background: rgba(10, 10, 15, 0.95);
-  backdrop-filter: blur(16px);
-  -webkit-backdrop-filter: blur(16px);
-  border: 1px solid rgba(255, 255, 255, 0.18);
-  border-radius: 10px;
-  padding: 8px 14px;
+  background: #ffff00;
+  color: #000000;
+  border: 1.5px solid #000000;
+  border-radius: 6px;
+  padding: 5px 10px;
   display: flex;
   flex-direction: column;
-  gap: 3px;
-  box-shadow: 0 12px 30px rgba(0, 0, 0, 0.7);
+  gap: 1px;
+  box-shadow: 0 8px 22px rgba(0, 0, 0, 0.55);
   z-index: 500;
-  transition: opacity 0.12s ease, transform 0.06s ease;
+  transition: opacity 0.1s ease, transform 0.05s ease;
   opacity: 0;
   transform: translate(-50%, -125%);
 }
 
 .creator-tooltip .c-rank {
-  font-size: 11px;
+  font-size: 10.5px;
   font-family: var(--font-mono);
-  color: var(--accent-cyan);
+  color: #000000;
   font-weight: 700;
+  line-height: 1.15;
 }
 
 .creator-tooltip .c-handle {
   font-size: 13px;
-  font-weight: 600;
-  color: #fff;
-}
-
-.creator-tooltip .c-hint {
-  font-size: 11px;
-  color: rgba(255, 255, 255, 0.55);
+  font-weight: 700;
+  color: #000000;
+  line-height: 1.2;
 }
 
 @media (max-width: 768px) {

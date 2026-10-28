@@ -26,7 +26,6 @@
   // DOM Elements
   const elGridViewport = document.getElementById('grid-viewport');
   const elGridBg = document.getElementById('grid-tiled-bg');
-  const elHighlightBox = document.getElementById('face-highlight-box');
   const elMaskWrapper = document.getElementById('mask-wrapper');
   const elTooltip = document.getElementById('creator-tooltip');
   const elTooltipRank = document.getElementById('tooltip-rank');
@@ -189,28 +188,19 @@
   function handleBackgroundFaceHover(e) {
     if (e.target.closest('#mask-wrapper') || e.target.closest('#print-mask-btn')) {
       elTooltip.style.opacity = '0';
-      elHighlightBox.style.opacity = '0';
       return;
     }
 
     const data = getCreatorFromEvent(e);
     if (data && data.creator) {
-      const { creator, col, row, bgRect } = data;
+      const { creator } = data;
       elTooltipRank.textContent = `#${creator.rank}`;
       elTooltipHandle.textContent = `@${creator.handle}`;
       elTooltip.style.left = `${e.clientX}px`;
       elTooltip.style.top = `${e.clientY}px`;
       elTooltip.style.opacity = '1';
-
-      const boxLeft = bgRect.left + col * tileW;
-      const boxTop = bgRect.top + (Math.floor((e.clientY - bgRect.top) / tileH) * tileH);
-      elHighlightBox.style.width = `${tileW}px`;
-      elHighlightBox.style.height = `${tileH}px`;
-      elHighlightBox.style.transform = `translate3d(${boxLeft}px, ${boxTop}px, 0)`;
-      elHighlightBox.style.opacity = '0.9';
     } else {
       elTooltip.style.opacity = '0';
-      elHighlightBox.style.opacity = '0';
     }
   }
 
